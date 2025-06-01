@@ -6,6 +6,7 @@ import android.view.*
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.graphics.toColorInt
+import android.app.Dialog
 
 class MainActivity : AppCompatActivity() {
 
@@ -29,6 +30,10 @@ class MainActivity : AppCompatActivity() {
 
         setContentView(R.layout.activity_main)
 
+        if (GameState.isFirstLaunch) {
+            showIntroModal()
+        }
+
         modalContainer = findViewById(R.id.modalContainer)
         modalText = findViewById(R.id.modalText)
 
@@ -49,6 +54,49 @@ class MainActivity : AppCompatActivity() {
         switchTab("Main")
 
         startGameUpdate()
+    }
+
+    private fun showIntroModal() {
+        val dialog = Dialog(this)
+        dialog.setCancelable(false)
+        dialog.setContentView(LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(40, 40, 40, 40)
+
+            val story = TextView(context).apply {
+                text = "You have been fired from your clerk job, and are now living at a cousin's farm, on his hayloft, on the condition that you help around the farm. On your way 'home' during a rainy night, you find a soft, amorphous, vaguely quadruped creature, small enough to fit your palm. You recognize the creature as a toki foal, tokis being rare, fantastical creatures of immense potential.\n\nDetermined to turn your life around, you decide to take the toki home and handle it so it may grow into a companion."
+                textSize = 16f
+            }
+            addView(story)
+
+            val playerInput = EditText(context).apply {
+                hint = "Enter your character's name"
+            }
+            addView(playerInput)
+
+            val tokiInput = EditText(context).apply {
+                hint = "Name your toki"
+            }
+            addView(tokiInput)
+
+            val confirm = Button(context).apply {
+                text = "Continue"
+                setOnClickListener {
+                    val playerName = playerInput.text.toString().trim()
+                    val tokiName = tokiInput.text.toString().trim()
+                    if (playerName.isEmpty() || tokiName.isEmpty()) {
+                        Toast.makeText(context, "Please enter both names.", Toast.LENGTH_SHORT).show()
+                    } else {
+                        GameState.playerName = playerName
+                        GameState.tokiName = tokiName
+                        GameState.isFirstLaunch = false
+                        dialog.dismiss()
+                    }
+                }
+            }
+            addView(confirm)
+        })
+        dialog.show()
     }
 
     private fun startGameUpdate() {
@@ -166,7 +214,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         // Player
-        resourcePanel.addView(makeHeader("Player:"))
+        resourcePanel.addView(makeHeader(GameState.playerName.toString() + ":"))
 
         if (GameState.maxPlayerHP > 0) {
             val hp = "%.1f".format(GameState.playerHP)
@@ -181,7 +229,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         // Toki
-        resourcePanel.addView(makeHeader("Toki:"))
+        resourcePanel.addView(makeHeader(GameState.tokiName.toString() + ":"))
 
         val tokiHP = "%.1f".format(GameState.tokiHP)
         val tokiMaxHP = "%.1f".format(GameState.maxTokiHP)

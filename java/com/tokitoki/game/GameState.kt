@@ -1,6 +1,9 @@
 package com.tokitoki.game
 
 object GameState {
+    var playerName: String? = null
+    var tokiName: String? = null
+    var isFirstLaunch: Boolean = true
 
     //Vitals
     var playerHP = 10.0
