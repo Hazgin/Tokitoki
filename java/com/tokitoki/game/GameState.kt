@@ -33,6 +33,10 @@ object GameState {
     var maxScrolls = 0.0
     var alltimeScrolls = 0.0
 
+    var knowledge = 0.0
+    var maxKnowledge = 0.0
+    var alltimeKnowledge = 0.0
+
     var herbs = 0.0
     var maxHerbs = 0.0
     var alltimeHerbs = 0.0
@@ -76,6 +80,8 @@ object GameState {
     var isTaskRunning = false
     var isResting = false
     var isTraining = false
+
+    //furniture
 
     val furnitureList = listOf(
         Furniture(
@@ -170,6 +176,47 @@ object GameState {
 
     var furnitureOwned = mutableMapOf<String, Int>()
 
+    //Homes
+
+    data class Home(
+        val name: String,
+        val costEletro: Int = 0,
+        val costHerbs: Int = 0,
+        val maxSpace: Int,
+        val hpBonus: Double = 0.0,
+        val staminaBonus: Double = 0.0,
+        val description: String
+    )
+
+    val homes = listOf(
+        Home(
+            name = "Hayloft",
+            maxSpace = 5,
+            description = "A simple hayloft. No cost to move here. No bonuses."
+        ),
+        Home(
+            name = "Hut",
+            costEletro = 50,
+            maxSpace = 15,
+            description = "A basic hut. Costs 50 Eletro to move here. Space: 15."
+        ),
+        Home(
+            name = "Cottage",
+            costEletro = 100,
+            maxSpace = 25,
+            description = "A cozy cottage. Costs 100 Eletro to move here. Space: 25."
+        ),
+        Home(
+            name = "Camp",
+            costEletro = 50,
+            costHerbs = 15,
+            maxSpace = 20,
+            hpBonus = 0.5,
+            staminaBonus = 0.5,
+            description = "A camp in nature. Costs 50 Eletro and 15 Herbs to move here. Space: 20. +0.5 HP and Stamina recovery rate."
+        )
+    )
+
     //Toki Evolution
     var eletroFed = 0.0
     var herbsFed = 0.0
@@ -228,4 +275,6 @@ object GameState {
 
         return false
     }
+
+    fun getHomeByName(name: String) = homes.find { it.name == name } ?: homes[0]
 }

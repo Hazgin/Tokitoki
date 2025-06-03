@@ -38,7 +38,7 @@ enum class SkillType {
 object GameSkills {
     val playerSkills = mutableListOf(
         Skill("Martial", maxLevel = 5, type = SkillType.PLAYER, unlockTag = "Martialsource"),
-        Skill("Herbalism", maxLevel = 5, type = SkillType.PLAYER, unlockTag = "Plantssource"),
+        Skill("Herbalism", maxLevel = 5, type = SkillType.PLAYER, unlockTag = "Plantsource"),
         Skill("Crafting", maxLevel = 5, type = SkillType.PLAYER, unlockTag = "Craftsource")
     )
 

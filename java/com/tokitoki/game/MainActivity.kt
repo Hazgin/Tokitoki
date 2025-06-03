@@ -250,7 +250,7 @@ class MainActivity : AppCompatActivity() {
         val maxEle = "%.1f".format(GameState.maxEletro)
         resourcePanel.addView(makeStatLine("Eletro: $ele / $maxEle"))
 
-        resourcePanel.addView(makeHeader("Materials:"))
+        if (GameState.maxHerbs > 0 ) {resourcePanel.addView(makeHeader("Materials:"))}
 
         val herbs = "%.1f".format(GameState.herbs)
         val maxHerbs = "%.1f".format(GameState.maxHerbs)
@@ -264,12 +264,18 @@ class MainActivity : AppCompatActivity() {
             resourcePanel.addView(makeStatLine("Bones: $bones / $maxBones"))
         }
 
-        resourcePanel.addView(makeHeader("Knowledge:"))
+        if (GameState.maxScrolls > 0 ) {resourcePanel.addView(makeHeader("Research:"))}
 
         val scrolls = "%.1f".format(GameState.scrolls)
         val maxScrolls = "%.1f".format(GameState.maxScrolls)
         if (GameState.maxScrolls > 0) {
             resourcePanel.addView(makeStatLine("Scrolls: $scrolls / $maxScrolls"))
+        }
+
+        val knowledge = "%.1f".format(GameState.knowledge)
+        val maxKnowledge = "%.1f".format(GameState.maxKnowledge)
+        if (GameState.knowledge > 0) {
+            resourcePanel.addView(makeStatLine("Knowledge: $knowledge / $maxKnowledge"))
         }
 
         resourcePanel.addView(makeHeader("Food:"))
@@ -437,6 +443,27 @@ class MainActivity : AppCompatActivity() {
             })
         }
 
+        val studyTitle = TextView(this).apply {
+            text = "\nStudying"
+            textSize = 18f
+            setPadding(8, 4, 8, 8)
+        }
+        if (GameState.scrolls > 0) {layout.addView(studyTitle)}
+
+        if (GameState.scrolls > 0) {
+            layout.addView(addButton("[TASK] Study", "Infinite task: -1 stamina and +1 Knowledge per second.", isTask = true) {
+                if (GameState.playerStamina <= 0) {
+                    stopTask()
+                } else if (GameState.canStartTask()) {
+                    startTask(infinite = true, label = "Studying...", perSecond = {
+                        GameState.playerStamina -= 1
+                        GameState.knowledge += 1
+                        updateResourcePanel()
+                    })
+                }
+            })
+        }
+
         val upgradesTitle = TextView(this).apply {
             text = "\nUpgrades"
             textSize = 18f
@@ -590,11 +617,15 @@ class MainActivity : AppCompatActivity() {
             orientation = LinearLayout.VERTICAL
         }
 
+        val currentHome = GameState.getHomeByName(GameState.currentHome)
         val homeStatus = Button(this).apply {
-            text = "Current Home: ${GameState.currentHome} (Space: ${GameState.space}/${GameState.maxSpace})"
-
+            text = "Current Home: ${currentHome.name} (Space: ${GameState.space}/${GameState.maxSpace})"
             setOnClickListener {
                 showHomeDropdown(it)
+            }
+            setOnLongClickListener {
+                showDescriptionModal(currentHome.description)
+                true
             }
         }
         layout.addView(homeStatus)
@@ -611,7 +642,6 @@ class MainActivity : AppCompatActivity() {
             val row = TableRow(this)
 
             val owned = GameState.furnitureOwned.getOrDefault(f.name, 0)
-
             val name = TextView(this).apply { text = f.name }
             val space = TextView(this).apply { text = f.space.toString() }
             val count = TextView(this).apply {
@@ -643,7 +673,6 @@ class MainActivity : AppCompatActivity() {
                         "Box" -> GameState.maxEletro += 25
                         "Scroll rack" -> {
                             GameState.maxScrolls += 15
-                            GameState.maxMilk +=15
                         }
                         "Windowbox" -> {
                             GameState.maxHerbs += 15
@@ -654,12 +683,16 @@ class MainActivity : AppCompatActivity() {
                             GameState.staminaRestRate += 0.5
                         }
                         "Food cabinet" -> {
-                            GameState.HPRestRate += 0.5
-                            GameState.staminaRestRate += 0.5
+                            GameState.maxRoots += 10
+                            GameState.maxGrain += 10
+                            GameState.maxBones += 10
+                            GameState.maxSpice += 1
                         }
                         "Food pot" -> {
-                            GameState.HPRestRate += 0.5
-                            GameState.staminaRestRate += 0.5
+                            GameState.maxMilk += 10
+                            GameState.maxMeat += 10
+                            GameState.maxBerries += 10
+                            GameState.maxFruit += 10
                         }
                     }
 
@@ -667,51 +700,87 @@ class MainActivity : AppCompatActivity() {
                         switchTab("Home")
                     }
                 }
-            }
-            val sellBtn = Button(this).apply {
-                text = "Sell"
-                isEnabled = owned > 0
-                setOnClickListener {
-                    GameState.furnitureOwned[f.name] = owned - 1
-                    GameState.space -= f.space
-                    GameState.eletro += (f.cost.eletroCost / 2).toInt()
-                    tabContentFrame.post {
-                        switchTab("Home")
-                    }
-                }
-            }
 
-            buyBtn.setOnLongClickListener {
-                Toast.makeText(this, f.effect, Toast.LENGTH_SHORT).show()
+            setOnLongClickListener {
+                showDescriptionModal(f.effect)
                 true
             }
-
-            sellBtn.setOnLongClickListener {
-                Toast.makeText(this, f.effect, Toast.LENGTH_SHORT).show()
-                true
-            }
-
-            actions.addView(buyBtn)
-            actions.addView(sellBtn)
-
-            row.addView(name)
-            row.addView(space)
-            row.addView(count)
-            row.addView(actions)
-            table.addView(row)
         }
+        actions.addView(buyBtn)
 
-        layout.addView(table)
-        tabContentFrame.addView(layout)
+        val sellBtn = Button(this).apply {
+            text = "Sell"
+            isEnabled = owned > 0
+            setOnClickListener {
+                GameState.furnitureOwned[f.name] = owned - 1
+                GameState.space -= f.space
+                GameState.eletro += (f.cost.eletroCost / 2).toInt()
+                updateResourcePanel()
+                showHomeTab()
+            }
+            setOnLongClickListener {
+                showDescriptionModal(f.effect)
+                true
+            }
+        }
+        actions.addView(sellBtn)
+
+        row.addView(name)
+        row.addView(space)
+        row.addView(count)
+        row.addView(actions)
+        table.addView(row)
+    }
+
+    layout.addView(table)
+    tabContentFrame.removeAllViews()
+    tabContentFrame.addView(layout)
     }
 
     private fun showHomeDropdown(view: View) {
         val popupMenu = PopupMenu(this, view)
+        GameState.homes.forEachIndexed { index, home ->
+            popupMenu.menu.add(0, index, index, home.name)
+        }
+        val modalHandler = Handler(Looper.getMainLooper())
 
-        val availableHomes = listOf("Home A", "Home B", "Home C")
+        popupMenu.setOnMenuItemClickListener { menuItem ->
+            val selectedHome = GameState.homes[menuItem.order]
+            val currentHome = GameState.getHomeByName(GameState.currentHome)
+            if (selectedHome.name == currentHome.name) {
+                Toast.makeText(this, "You already live in the ${selectedHome.name}.", Toast.LENGTH_SHORT).show()
+                return@setOnMenuItemClickListener true
+            }
 
-        availableHomes.forEachIndexed { index, home ->
-            popupMenu.menu.add(0, index, index, home)
+            if (GameState.eletro < selectedHome.costEletro) {
+                Toast.makeText(this, "Not enough Eletro to move!", Toast.LENGTH_SHORT).show()
+                return@setOnMenuItemClickListener true
+            }
+            if (GameState.herbs < selectedHome.costHerbs) {
+                Toast.makeText(this, "Not enough Herbs to move!", Toast.LENGTH_SHORT).show()
+                return@setOnMenuItemClickListener true
+            }
+
+            GameState.eletro -= selectedHome.costEletro
+            GameState.herbs -= selectedHome.costHerbs
+            GameState.currentHome = selectedHome.name
+            GameState.maxSpace = selectedHome.maxSpace
+            GameState.space = minOf(GameState.space, GameState.maxSpace)
+
+            GameState.HPRestRate = 1.0
+            GameState.staminaRestRate = 1.0
+            GameState.HPRestRate += selectedHome.hpBonus
+            GameState.staminaRestRate += selectedHome.staminaBonus
+
+            updateResourcePanel()
+            showHomeTab()
+            Toast.makeText(this, "Moved to ${selectedHome.name}!", Toast.LENGTH_SHORT).show()
+            true
+        }
+
+        val menuView = popupMenu.menu
+        for (i in 0 until menuView.size()) {
+            val home = GameState.homes[i]
         }
 
         popupMenu.show()
@@ -747,7 +816,6 @@ class MainActivity : AppCompatActivity() {
             orientation = LinearLayout.VERTICAL
             setPadding(0, 0, 0, 16)
         }
-
         val topRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
         }
@@ -782,20 +850,28 @@ class MainActivity : AppCompatActivity() {
         bottomRow.addView(spacer, LinearLayout.LayoutParams(0, 0, 1f))
 
         val trainButton = addButton("[TASK] Train skill", "Train this skill for 5 EXP/sec", isTask = true) {
-            if (GameState.canStartTask() && !GameState.isTraining) {
+            if (GameState.canStartTask() && !GameState.isTraining && skill.level < skill.maxLevel) {
                 startTask(
                     infinite = true, label = "Training ${skill.name}...", perSecond = {
-                        GameSkills.trainSkill(skill, 5)
-                        expView.text = "${skill.exp} / ${skill.expToNext}"
-                        levelView.text = "${skill.level} / ${skill.maxLevel}"
+                        if (skill.level >= skill.maxLevel) {
+                            stopTask()
+                            Toast.makeText(this, "Skill is maxed!", Toast.LENGTH_SHORT).show()
+                        } else {
+                            GameSkills.trainSkill(skill, 5)
+                            expView.text = "${skill.exp} / ${skill.expToNext}"
+                            levelView.text = "${skill.level} / ${skill.maxLevel}"
+                        }
                     }
                 )
             } else if (GameState.isTraining) {
                 stopTask()
+            } else if (skill.level >= skill.maxLevel) {
+                Toast.makeText(this, "Skill is already at max level!", Toast.LENGTH_SHORT).show()
             } else {
                 Toast.makeText(this, "You cannot start another task right now.", Toast.LENGTH_SHORT).show()
             }
         }
+        trainButton.isEnabled = skill.canTrain()
         bottomRow.addView(trainButton)
 
         box.addView(bottomRow)
