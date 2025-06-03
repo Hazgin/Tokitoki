@@ -45,6 +45,10 @@ object GameState {
     var maxMeat = 0.0
     var alltimeMeat = 0.0
 
+    var bones = 0.0
+    var maxBones = 0.0
+    var alltimeBones = 0.0
+
     var berries = 0.0
     var maxBerries = 0.0
     var alltimeBerries = 0.0
@@ -53,9 +57,9 @@ object GameState {
     var maxRoots = 0.0
     var alltimeRoots = 0.0
 
-    var grains = 0.0
-    var maxGrains = 0.0
-    var alltimeGrains = 0.0
+    var grain = 0.0
+    var maxGrain = 0.0
+    var alltimeGrain = 0.0
 
     var fruit = 0.0
     var maxFruit = 0.0
@@ -71,6 +75,7 @@ object GameState {
 
     var isTaskRunning = false
     var isResting = false
+    var isTraining = false
 
     val furnitureList = listOf(
         Furniture(
@@ -78,7 +83,7 @@ object GameState {
             cost = FurnitureCost(eletroCost = 10f, scrollsCost = 0f, herbsCost = 0f),
             space = 1,
             maxAmount = null,
-            effect = "Costs 10 Eletro; +25 max Eletro",
+            effect = "A compact wooden coffer for storing money.\n\nCosts 10 Eletro;\n+25 max Eletro.",
             tags = listOf()
         ),
         Furniture(
@@ -86,31 +91,47 @@ object GameState {
             cost = FurnitureCost(eletroCost = 10f, scrollsCost = 0f, herbsCost = 0f),
             space = 1,
             maxAmount = 1,
-            effect = "Costs 10 Eletro; +0.5 HP/Stamina recovery while resting",
+            effect = "Slightly better than sleeping on the floor.\n\nCosts 10 Eletro;\n+0.5 HP/Stamina recovery while resting.",
             tags = listOf("Resting place")
         ),
         Furniture(
-            name = "Feeding Bowls",
-            cost = FurnitureCost(eletroCost = 10f, scrollsCost = 0f, herbsCost = 0f),
-            space = 1,
-            maxAmount = 1,
-            effect = "Costs 10 Eletro; Lets you take care of a toki",
-            tags = listOf("Toki handling")
-        ),
-        Furniture(
-            name = "Punching bag",
-            cost = FurnitureCost(eletroCost = 10f, scrollsCost = 0f, herbsCost = 0f),
-            space = 1,
-            maxAmount = 1,
-            effect = "Costs 10 Eletro; Used for martial training",
-            tags = listOf("Martialsource")
-        ),
-        Furniture(
-            name = "Small shelf",
+            name = "Food cabinet",
             cost = FurnitureCost(eletroCost = 15f, scrollsCost = 0f, herbsCost = 0f),
             space = 1,
             maxAmount = null,
-            effect = "Costs 15 Eletro; +15 max Scrolls",
+            effect = "Simple cabinet for storing dry food.\n\nCosts 15 Eletro;\n+10 max Roots;\n+10 max Grain;\n+10 max Bones;\n+1 max Spice.",
+            tags = listOf()
+        ),
+        Furniture(
+            name = "Food pot",
+            cost = FurnitureCost(eletroCost = 15f, scrollsCost = 0f, herbsCost = 0f),
+            space = 1,
+            maxAmount = null,
+            effect = "Clay pots for preserving food.\n\nCosts 15 Eletro;\n+10 max Milk;\n+10 max Meat;\n+10 max Berries\n+10 max Fruit.",
+            tags = listOf()
+        ),
+        Furniture(
+            name = "Frugal pen",
+            cost = FurnitureCost(eletroCost = 10f, scrollsCost = 0f, herbsCost = 0f),
+            space = 1,
+            maxAmount = 1,
+            effect = "Costs 10 Eletro; Lets you take care of a toki.",
+            tags = listOf("Toki handling")
+        ),
+        Furniture(
+            name = "Punching Pole",
+            cost = FurnitureCost(eletroCost = 10f, scrollsCost = 0f, herbsCost = 0f),
+            space = 1,
+            maxAmount = 1,
+            effect = "A thick wooden pole with padding at the top.\n\nCosts 10 Eletro;\nUsed for martial training.",
+            tags = listOf("Martialsource")
+        ),
+        Furniture(
+            name = "Scroll rack",
+            cost = FurnitureCost(eletroCost = 15f, scrollsCost = 0f, herbsCost = 0f),
+            space = 1,
+            maxAmount = null,
+            effect = "Small shelves for storing scrolls.\n\nCosts 15 Eletro;\n+15 max Scrolls",
             tags = listOf()
         ),
         Furniture(
@@ -118,7 +139,7 @@ object GameState {
             cost = FurnitureCost(eletroCost = 20f, scrollsCost = 0f, herbsCost = 0f),
             space = 2,
             maxAmount = 1,
-            effect = "Costs 20 Eletro; Crafting surface",
+            effect = "A long table with chairs. Useful for making stuff.\n\nCosts 20 Eletro;\nCrafting surface",
             tags = listOf("Craftsource")
         ),
         Furniture(
@@ -126,7 +147,7 @@ object GameState {
             cost = FurnitureCost(eletroCost = 10f, scrollsCost = 0f, herbsCost = 0f),
             space = 1,
             maxAmount = null,
-            effect = "Costs 10 Eletro; +15 max Herbs",
+            effect = "A planting vase for growing small plants even inside the house.\n\nCosts 10 Eletro;\n+15 max Herbs",
             tags = listOf("Plantsource")
         )
     )
@@ -179,6 +200,10 @@ object GameState {
 
     val unlockedTabs = mutableSetOf("Main", "Stats")
 
+    //Skills
+    var playerSkills = mutableListOf<Skill>()
+    var tokiSkills = mutableListOf<Skill>()
+
     // Functions
     fun unlockTab(name: String) {
         unlockedTabs.add(name)
@@ -197,5 +222,10 @@ object GameState {
         return furnitureList.any { furniture ->
             tag in furniture.tags && (furnitureOwned[furniture.name] ?: 0) > 0
         }
+    }
+
+    fun hasUpgradeWithTag(tag: String): Boolean {
+
+        return false
     }
 }

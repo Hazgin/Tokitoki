@@ -64,7 +64,7 @@ class MainActivity : AppCompatActivity() {
             setPadding(40, 40, 40, 40)
 
             val story = TextView(context).apply {
-                text = "You have been fired from your clerk job, and are now living at a cousin's farm, on his hayloft, on the condition that you help around the farm. On your way 'home' during a rainy night, you find a soft, amorphous, vaguely quadruped creature, small enough to fit your palm. You recognize the creature as a toki foal, tokis being rare, fantastical creatures of immense potential.\n\nDetermined to turn your life around, you decide to take the toki home and handle it so it may grow into a companion."
+                text = "Life has not been kind for you recently. You have just been fired from your clerk job, and are now living at a cousin's farm, on his hayloft, on the condition that you help around with chores.\n\nOn your way 'home' during a rainy night, you hear a soft chirping comming from a dirty alley. There, you find a soft, amorphous, vaguely quadruped creature, small enough to fit your palm. You recognize the creature as a toki foal, tokis being rare fantastical metamorphic creatures of immense potential. They are also very rare. This must be a sign!\n\nDetermined to turn your life around, you decide to take the toki to the hayloft and handle it so it may grow into a companion."
                 textSize = 16f
             }
             addView(story)
@@ -170,7 +170,10 @@ class MainActivity : AppCompatActivity() {
         if (GameState.eletro >= 40.0) {
             GameState.unlockTab("Home")
         }
-        val tabs = listOf("Main", "Stats", "Home")
+        if (GameState.eletro >= 40.0) {
+            GameState.unlockTab("Skills")
+        }
+        val tabs = listOf("Main", "Stats", "Home", "Skills")
         for (tab in tabs) {
             if (tab in GameState.unlockedTabs) {
                 val button = Button(this).apply {
@@ -189,6 +192,7 @@ class MainActivity : AppCompatActivity() {
             "Main" -> showMainTab()
             "Stats" -> showStatsTab()
             "Home" -> showHomeTab()
+            "Skills" -> showSkillsTab()
         }
     }
 
@@ -240,11 +244,13 @@ class MainActivity : AppCompatActivity() {
         resourcePanel.addView(makeStatLine("Stamina: $tokiStamina / $tokiMaxStamina"))
 
         // Resources
-        resourcePanel.addView(makeHeader("Resources:"))
+        resourcePanel.addView(makeHeader("Valuables:"))
 
         val ele = "%.1f".format(GameState.eletro)
         val maxEle = "%.1f".format(GameState.maxEletro)
         resourcePanel.addView(makeStatLine("Eletro: $ele / $maxEle"))
+
+        resourcePanel.addView(makeHeader("Materials:"))
 
         val herbs = "%.1f".format(GameState.herbs)
         val maxHerbs = "%.1f".format(GameState.maxHerbs)
@@ -252,16 +258,68 @@ class MainActivity : AppCompatActivity() {
             resourcePanel.addView(makeStatLine("Herbs: $herbs / $maxHerbs"))
         }
 
+        val bones = "%.1f".format(GameState.bones)
+        val maxBones = "%.1f".format(GameState.maxBones)
+        if (GameState.maxMeat > 0) {
+            resourcePanel.addView(makeStatLine("Bones: $bones / $maxBones"))
+        }
+
+        resourcePanel.addView(makeHeader("Knowledge:"))
+
         val scrolls = "%.1f".format(GameState.scrolls)
         val maxScrolls = "%.1f".format(GameState.maxScrolls)
         if (GameState.maxScrolls > 0) {
             resourcePanel.addView(makeStatLine("Scrolls: $scrolls / $maxScrolls"))
         }
 
+        resourcePanel.addView(makeHeader("Food:"))
+
+        val meat = "%.1f".format(GameState.meat)
+        val maxMeat = "%.1f".format(GameState.maxMeat)
+        if (GameState.maxMeat > 0) {
+            resourcePanel.addView(makeStatLine("Meat: $meat / $maxMeat"))
+        }
+
         val milk = "%.1f".format(GameState.milk)
         val maxMilk = "%.1f".format(GameState.maxMilk)
         if (GameState.maxMilk > 0) {
             resourcePanel.addView(makeStatLine("Milk: $milk / $maxMilk"))
+        }
+
+        val berries = "%.1f".format(GameState.berries)
+        val maxBerries = "%.1f".format(GameState.maxBerries)
+        if (GameState.maxBerries > 0) {
+            resourcePanel.addView(makeStatLine("Berries: $berries / $maxBerries"))
+        }
+
+        val roots = "%.1f".format(GameState.roots)
+        val maxRoots = "%.1f".format(GameState.maxRoots)
+        if (GameState.maxRoots > 0) {
+            resourcePanel.addView(makeStatLine("Roots: $roots / $maxRoots"))
+        }
+
+        val grain = "%.1f".format(GameState.grain)
+        val maxGrain = "%.1f".format(GameState.maxGrain)
+        if (GameState.maxGrain > 0) {
+            resourcePanel.addView(makeStatLine("Grain: $grain / $maxGrain"))
+        }
+
+        val fruit = "%.1f".format(GameState.fruit)
+        val maxFruit = "%.1f".format(GameState.maxFruit)
+        if (GameState.maxFruit > 0) {
+            resourcePanel.addView(makeStatLine("Fruit: $fruit / $maxFruit"))
+        }
+
+        val mushrooms = "%.1f".format(GameState.mushrooms)
+        val maxMushrooms = "%.1f".format(GameState.maxMushrooms)
+        if (GameState.maxMushrooms > 0) {
+            resourcePanel.addView(makeStatLine("Mushrooms: $mushrooms / $maxMushrooms"))
+        }
+
+        val spice = "%.1f".format(GameState.spice)
+        val maxSpice = "%.1f".format(GameState.maxSpice)
+        if (GameState.maxSpice > 0) {
+            resourcePanel.addView(makeStatLine("Spice: $spice / $maxSpice"))
         }
 
         if (GameState.eletro > GameState.maxEletro) {
@@ -284,7 +342,7 @@ class MainActivity : AppCompatActivity() {
         val affluenceTitle = TextView(this).apply {
             text = "\nAffluence"
             textSize = 18f
-            setPadding(8, 16, 8, 8)
+            setPadding(8, 4, 8, 8)
         }
         layout.addView(affluenceTitle)
 
@@ -335,7 +393,7 @@ class MainActivity : AppCompatActivity() {
             textSize = 18f
             setPadding(8, 16, 8, 8)
         }
-        layout.addView(materialsTitle)
+        if (GameState.maxScrolls > 0 || GameState.maxHerbs > 0 || GameState.maxMilk > 0) {layout.addView(materialsTitle)}
 
         if (GameState.maxScrolls > 0) {
             layout.addView(addButton("[ACTION] Buy Scroll", "Costs 5 Eletro, gives 1 Scroll") {
@@ -583,14 +641,23 @@ class MainActivity : AppCompatActivity() {
 
                     when (f.name) {
                         "Box" -> GameState.maxEletro += 25
-                        "Small shelf" -> {
+                        "Scroll rack" -> {
                             GameState.maxScrolls += 15
                             GameState.maxMilk +=15
                         }
                         "Windowbox" -> {
                             GameState.maxHerbs += 15
+                            GameState.maxMushrooms += 5
                         }
                         "Cot" -> {
+                            GameState.HPRestRate += 0.5
+                            GameState.staminaRestRate += 0.5
+                        }
+                        "Food cabinet" -> {
+                            GameState.HPRestRate += 0.5
+                            GameState.staminaRestRate += 0.5
+                        }
+                        "Food pot" -> {
                             GameState.HPRestRate += 0.5
                             GameState.staminaRestRate += 0.5
                         }
@@ -648,6 +715,91 @@ class MainActivity : AppCompatActivity() {
         }
 
         popupMenu.show()
+    }
+
+    private fun showSkillsTab() {
+        val layout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(16, 16, 16, 16)
+        }
+
+        fun addSkillSection(title: String, skills: List<Skill>) {
+            val sectionTitle = TextView(this).apply {
+                text = title
+                textSize = 18f
+                setPadding(0, 16, 0, 8)
+            }
+            layout.addView(sectionTitle)
+            for (skill in skills) {
+                layout.addView(makeSkillBox(skill))
+            }
+        }
+
+        addSkillSection("Player Skills", GameSkills.getSkillsByType(SkillType.PLAYER))
+        addSkillSection("Toki Skills", GameSkills.getSkillsByType(SkillType.TOKI))
+
+        tabContentFrame.removeAllViews()
+        tabContentFrame.addView(layout)
+    }
+
+    private fun makeSkillBox(skill: Skill): LinearLayout {
+        val box = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(0, 0, 0, 16)
+        }
+
+        val topRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+        }
+        val nameView = TextView(this).apply {
+            text = skill.name
+            textSize = 16f
+            setPadding(0, 0, 8, 0)
+        }
+        val levelView = TextView(this).apply {
+            text = "${skill.level} / ${skill.maxLevel}"
+            textSize = 16f
+            setPadding(8, 0, 0, 0)
+            layoutParams = LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f
+            ).apply { setMargins(0,0,0,0) }
+            gravity = Gravity.END
+        }
+        topRow.addView(nameView)
+        topRow.addView(levelView)
+        box.addView(topRow)
+
+        val bottomRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+        }
+        val expView = TextView(this).apply {
+            text = "${skill.exp} / ${skill.expToNext}"
+            setPadding(0, 0, 8, 0)
+        }
+        bottomRow.addView(expView)
+
+        val spacer = Space(this)
+        bottomRow.addView(spacer, LinearLayout.LayoutParams(0, 0, 1f))
+
+        val trainButton = addButton("[TASK] Train skill", "Train this skill for 5 EXP/sec", isTask = true) {
+            if (GameState.canStartTask() && !GameState.isTraining) {
+                startTask(
+                    infinite = true, label = "Training ${skill.name}...", perSecond = {
+                        GameSkills.trainSkill(skill, 5)
+                        expView.text = "${skill.exp} / ${skill.expToNext}"
+                        levelView.text = "${skill.level} / ${skill.maxLevel}"
+                    }
+                )
+            } else if (GameState.isTraining) {
+                stopTask()
+            } else {
+                Toast.makeText(this, "You cannot start another task right now.", Toast.LENGTH_SHORT).show()
+            }
+        }
+        bottomRow.addView(trainButton)
+
+        box.addView(bottomRow)
+        return box
     }
 
     private fun addButton(
