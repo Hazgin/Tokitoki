@@ -281,6 +281,13 @@ class MainActivity : AppCompatActivity() {
         (taskTimerText.parent as? ViewGroup)?.removeView(taskTimerText)
         layout.addView(taskTimerText)
 
+        val affluenceTitle = TextView(this).apply {
+            text = "\nAffluence"
+            textSize = 18f
+            setPadding(8, 16, 8, 8)
+        }
+        layout.addView(affluenceTitle)
+
         layout.addView(addButton("[ACTION] Beg for money", "Costs 1 Stamina, gives 1 Eletro") {
             if (GameState.playerStamina >= 1 && GameState.eletro < GameState.maxEletro) {
                 GameState.playerStamina -= 1
@@ -292,48 +299,6 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         })
-
-        if (GameState.hasFurnitureWithTag("Plantsource") && GameState.maxHerbs > 0) {
-            layout.addView(addButton("[ACTION] Collect Herbs", "Costs 1.5 Stamina, gives 1 herb.") {
-                if (GameState.playerStamina >= 1.5 && GameState.maxHerbs > GameState.herbs) {
-                    GameState.playerStamina -= 1.5
-                    GameState.herbs += 1
-                    GameState.alltimeHerbs += 1
-                    updateResourcePanel()
-                    tabContentFrame.post {
-                        switchTab("Main")
-                    }
-                }
-            })
-        }
-
-        if (GameState.maxScrolls > 0) {
-            layout.addView(addButton("[ACTION] Buy Scroll", "Costs 5 Eletro, gives 1 Scroll") {
-                if (GameState.eletro >= 5 && GameState.scrolls < GameState.maxScrolls) {
-                    GameState.eletro -= 5
-                    GameState.scrolls += 1
-                    GameState.alltimeScrolls += 1
-                    updateResourcePanel()
-                    tabContentFrame.post {
-                        switchTab("Main")
-                    }
-                }
-            })
-        }
-
-        if (GameState.maxMilk > 0) {
-            layout.addView(addButton("[ACTION] Buy Milk", "Costs 2 Eletro, gives 1 Milk") {
-                if (GameState.eletro >= 2 && GameState.milk < GameState.maxMilk) {
-                    GameState.eletro -= 2
-                    GameState.milk += 1
-                    GameState.alltimeMilk += 1
-                    updateResourcePanel()
-                    tabContentFrame.post {
-                        switchTab("Main")
-                    }
-                }
-            })
-        }
 
         layout.addView(addButton("[TASK] Clean stables", "10s task: 1 Stamina/s, gives 12 Eletro", isTask = true) {
             if (GameState.canStartTask() && GameState.playerStamina >= 10) {
@@ -358,12 +323,61 @@ class MainActivity : AppCompatActivity() {
                 stopTask()
             } else if (GameState.canStartTask()) {
                 startTask(infinite = true, label = "Resting...", perSecond = {
-                    GameState.playerHP = (GameState.playerHP + 1).coerceAtMost(GameState.maxPlayerHP)
-                    GameState.playerStamina = (GameState.playerStamina + 1).coerceAtMost(GameState.maxPlayerStamina)
+                    GameState.playerHP = (GameState.playerHP + GameState.HPRestRate).coerceAtMost(GameState.maxPlayerHP)
+                    GameState.playerStamina = (GameState.playerStamina + GameState.staminaRestRate).coerceAtMost(GameState.maxPlayerStamina)
                     updateResourcePanel()
                 })
             }
         })
+
+        val materialsTitle = TextView(this).apply {
+            text = "\nMaterials"
+            textSize = 18f
+            setPadding(8, 16, 8, 8)
+        }
+        layout.addView(materialsTitle)
+
+        if (GameState.maxScrolls > 0) {
+            layout.addView(addButton("[ACTION] Buy Scroll", "Costs 5 Eletro, gives 1 Scroll") {
+                if (GameState.eletro >= 5 && GameState.scrolls < GameState.maxScrolls) {
+                    GameState.eletro -= 5
+                    GameState.scrolls += 1
+                    GameState.alltimeScrolls += 1
+                    updateResourcePanel()
+                    tabContentFrame.post {
+                        switchTab("Main")
+                    }
+                }
+            })
+        }
+
+        if (GameState.hasFurnitureWithTag("Plantsource") && GameState.maxHerbs > 0) {
+            layout.addView(addButton("[ACTION] Collect Herbs", "Costs 1.5 Stamina, gives 1 herb.") {
+                if (GameState.playerStamina >= 1.5 && GameState.maxHerbs > GameState.herbs) {
+                    GameState.playerStamina -= 1.5
+                    GameState.herbs += 1
+                    GameState.alltimeHerbs += 1
+                    updateResourcePanel()
+                    tabContentFrame.post {
+                        switchTab("Main")
+                    }
+                }
+            })
+        }
+
+        if (GameState.maxMilk > 0) {
+            layout.addView(addButton("[ACTION] Buy Milk", "Costs 2 Eletro, gives 1 Milk") {
+                if (GameState.eletro >= 2 && GameState.milk < GameState.maxMilk) {
+                    GameState.eletro -= 2
+                    GameState.milk += 1
+                    GameState.alltimeMilk += 1
+                    updateResourcePanel()
+                    tabContentFrame.post {
+                        switchTab("Main")
+                    }
+                }
+            })
+        }
 
         val upgradesTitle = TextView(this).apply {
             text = "\nUpgrades"
@@ -387,8 +401,15 @@ class MainActivity : AppCompatActivity() {
             })
         }
 
+        val craftingTitle = TextView(this).apply {
+            text = "\nCrafting"
+            textSize = 18f
+            setPadding(8, 16, 8, 8)
+        }
+        layout.addView(craftingTitle)
+
         if (!GameState.hasWindchime) {
-            layout.addView(addButton("[TASK] Build Windchime", "5s task: 0.5 Stamina/s & 1 Eletro/s", isTask = true) {
+            layout.addView(addButton("[TASK] Windchime", "5s task: 0.5 Stamina/s & 1 Eletro/s", isTask = true) {
                 if (GameState.canStartTask() && GameState.playerStamina >= 2.5 && GameState.eletro >= 5) {
                     startTask(5000, "Building windchime...", perSecond = {
                         GameState.playerStamina -= 0.5
@@ -397,6 +418,8 @@ class MainActivity : AppCompatActivity() {
                     }) {
                         GameState.maxPlayerHP += 2
                         GameState.maxPlayerStamina += 2
+                        GameState.HPRestRate += 0.5
+                        GameState.staminaRestRate += 0.5
                         GameState.hasWindchime = true
                         GameState.upgradesAcquired++
                         updateResourcePanel()
@@ -459,6 +482,26 @@ class MainActivity : AppCompatActivity() {
                 if (GameState.herbs >= 2) {
                     GameState.herbs -= 2
                     GameState.herbsFed += 2
+                    tabContentFrame.post {
+                        switchTab("Main")
+                    }
+                }
+            })
+        }
+
+        val evolveTitle = TextView(this).apply {
+            text = "\nToki Evolution"
+            textSize = 18f
+            setPadding(8, 16, 8, 8)
+        }
+        if (GameState.alltimeFed >= 5) {layout.addView(evolveTitle)}
+
+        if (GameState.alltimeFed >= 50 && GameState.milkFed+GameState.meatFed >= 30) {
+            layout.addView(addButton("Warhorse", "Allows your toki to evolve into a Warhorse, a strong form focused in battle.\n\n•Learns martial skills quicker.\n•Deals more damage to enemies.\n•Has more HP.") {
+                    {
+                    GameState.tokiLvl = 1.0
+                    GameState.tokiHP = 20.0
+                    GameState.tokiHPRate = 0.75
                     tabContentFrame.post {
                         switchTab("Main")
                     }
@@ -547,7 +590,10 @@ class MainActivity : AppCompatActivity() {
                         "Windowbox" -> {
                             GameState.maxHerbs += 15
                         }
-                        "Cot" -> {}
+                        "Cot" -> {
+                            GameState.HPRestRate += 0.5
+                            GameState.staminaRestRate += 0.5
+                        }
                     }
 
                     tabContentFrame.post {

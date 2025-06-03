@@ -29,17 +29,45 @@ object GameState {
     var maxEletro = 15.0
     var alltimeEletro = 0.0
 
-    var herbs = 0.0
-    var maxHerbs = 0.0
-    var alltimeHerbs = 0.0
-
     var scrolls = 0.0
     var maxScrolls = 0.0
     var alltimeScrolls = 0.0
 
+    var herbs = 0.0
+    var maxHerbs = 0.0
+    var alltimeHerbs = 0.0
+
     var milk = 0.0
     var maxMilk = 0.0
     var alltimeMilk = 0.0
+
+    var meat = 0.0
+    var maxMeat = 0.0
+    var alltimeMeat = 0.0
+
+    var berries = 0.0
+    var maxBerries = 0.0
+    var alltimeBerries = 0.0
+
+    var roots = 0.0
+    var maxRoots = 0.0
+    var alltimeRoots = 0.0
+
+    var grains = 0.0
+    var maxGrains = 0.0
+    var alltimeGrains = 0.0
+
+    var fruit = 0.0
+    var maxFruit = 0.0
+    var alltimeFruit = 0.0
+
+    var mushrooms = 0.0
+    var maxMushrooms = 0.0
+    var alltimeMushrooms = 0.0
+
+    var spice = 0.0
+    var maxSpice = 0.0
+    var alltimeSpice = 0.0
 
     var isTaskRunning = false
     var isResting = false
@@ -121,13 +149,20 @@ object GameState {
 
     var furnitureOwned = mutableMapOf<String, Int>()
 
-    //Toki
+    //Toki Evolution
     var eletroFed = 0.0
     var herbsFed = 0.0
     var milkFed = 0.0
     var berriesFed = 0.0
     var mossFed = 0.0
-    var alltimeFed = eletroFed + herbsFed + milkFed + berriesFed + mossFed
+    var meatFed = 0.0
+    var rootFed = 0.0
+    var grainFed = 0.0
+    var mushroomFed = 0.0
+    var fruitFed = 0.0
+    var spiceFed = 0.0
+    var alltimeFed = eletroFed + herbsFed + milkFed + berriesFed + mossFed + rootFed + grainFed + mushroomFed + fruitFed + spiceFed
+    var tokiLvl = 0.0
 
     // Progression
     var upgradesAcquired = 0
@@ -138,6 +173,9 @@ object GameState {
     var currentHome = "Hayloft"
     var space = 5
     var maxSpace = 5
+
+    var HPRestRate = 1.0
+    var staminaRestRate = 1.0
 
     val unlockedTabs = mutableSetOf("Main", "Stats")
 
