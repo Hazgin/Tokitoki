@@ -43,7 +43,10 @@ object GameSkills {
     )
 
     val tokiSkills = mutableListOf<Skill>(
-        Skill("Tracking", maxLevel = 5, type = SkillType.TOKI, unlockTag = "Toki handling")
+        Skill("Tracking", maxLevel = 5, type = SkillType.TOKI, unlockTag = "Toki handling"),
+        Skill("Running", maxLevel = 5, type = SkillType.TOKI, unlockTag = "Toki handling"),
+        Skill("Load bearing", maxLevel = 5, type = SkillType.TOKI, unlockTag = "Toki handling"),
+        Skill("Logic", maxLevel = 5, type = SkillType.TOKI, unlockTag = "Toki handling"),
     )
 
     fun getAllSkills(): List<Skill> = playerSkills + tokiSkills

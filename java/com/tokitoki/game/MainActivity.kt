@@ -17,6 +17,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var taskTimerText: TextView
     private lateinit var modalContainer: FrameLayout
     private lateinit var modalText: TextView
+    private var lastInterruptedTask: (() -> Unit)? = null
 
 
     private var currentTab = "Main"
@@ -332,6 +333,10 @@ class MainActivity : AppCompatActivity() {
             GameState.eletro = GameState.maxEletro
         }
 
+        if (GameState.playerStamina < 0) {
+
+        }
+
         setupTabs()
     }
 
@@ -365,21 +370,22 @@ class MainActivity : AppCompatActivity() {
         })
 
         layout.addView(addButton("[TASK] Clean stables", "10s task: 1 Stamina/s, gives 12 Eletro", isTask = true) {
-            if (GameState.canStartTask() && GameState.playerStamina >= 10) {
-                startTask(10_000, "Cleaning stables...", perSecond = {
-                    GameState.playerStamina -= 1
-                    updateResourcePanel()
-                    tabContentFrame.post {
-                        switchTab("Main")
+            val cleanStablesTask = {
+                startTask(
+                    duration = 10_000,
+                    label = "Cleaning stables...",
+                    perSecond = {
+                        GameState.playerStamina -= 1
+                        updateResourcePanel()
+                    },
+                    onComplete = {
+                        GameState.eletro += 12
+                        updateResourcePanel()
                     }
-                }) {
-                    GameState.eletro += 12
-                    updateResourcePanel()
-                    tabContentFrame.post {
-                        switchTab("Main")
-                    }
-                }
+                )
             }
+            cleanStablesTask()
+            lastInterruptedTask = cleanStablesTask
         })
 
         layout.addView(addButton("[TASK] Rest", "Infinite task: +1 HP & +1 Stamina per second", isTask = true) {
@@ -429,10 +435,24 @@ class MainActivity : AppCompatActivity() {
             })
         }
 
+        if (GameState.hasFurnitureWithTag("Plantsource") && GameSkills.playerSkills.find { it.name == "Herbalism" }?.level ?: 0 >= 2 && GameState.maxMushrooms > 0) {
+            layout.addView(addButton("[ACTION] Collect Mushrooms", "Costs 2 Stamina, gives 1 mushroom.") {
+                if (GameState.playerStamina >= 2 && GameState.maxMushrooms > GameState.mushrooms) {
+                    GameState.playerStamina -= 2
+                    GameState.mushrooms += 1
+                    GameState.alltimeMushrooms += 1
+                    updateResourcePanel()
+                    tabContentFrame.post {
+                        switchTab("Main")
+                    }
+                }
+            })
+        }
+
         if (GameState.maxMilk > 0) {
-            layout.addView(addButton("[ACTION] Buy Milk", "Costs 2 Eletro, gives 1 Milk") {
-                if (GameState.eletro >= 2 && GameState.milk < GameState.maxMilk) {
-                    GameState.eletro -= 2
+            layout.addView(addButton("[ACTION] Milk cow", "Get some milk from one of you kind cousin's cows.\n\nCosts 1 Eletro, gives 1 Milk") {
+                if (GameState.eletro >= 1 && GameState.milk < GameState.maxMilk) {
+                    GameState.eletro -= 1
                     GameState.milk += 1
                     GameState.alltimeMilk += 1
                     updateResourcePanel()
@@ -451,13 +471,13 @@ class MainActivity : AppCompatActivity() {
         if (GameState.scrolls > 0) {layout.addView(studyTitle)}
 
         if (GameState.scrolls > 0) {
-            layout.addView(addButton("[TASK] Study", "Infinite task: -1 stamina and +1 Knowledge per second.", isTask = true) {
+            layout.addView(addButton("[TASK] Study", "Infinite task: -1 stamina per second. Knowledge gained dependent on available study materials.", isTask = true) {
                 if (GameState.playerStamina <= 0) {
                     stopTask()
                 } else if (GameState.canStartTask()) {
                     startTask(infinite = true, label = "Studying...", perSecond = {
                         GameState.playerStamina -= 1
-                        GameState.knowledge += 1
+                        GameState.knowledge += (GameState.scrolls/10)
                         updateResourcePanel()
                     })
                 }
@@ -495,24 +515,31 @@ class MainActivity : AppCompatActivity() {
 
         if (!GameState.hasWindchime) {
             layout.addView(addButton("[TASK] Windchime", "5s task: 0.5 Stamina/s & 1 Eletro/s", isTask = true) {
-                if (GameState.canStartTask() && GameState.playerStamina >= 2.5 && GameState.eletro >= 5) {
-                    startTask(5000, "Building windchime...", perSecond = {
-                        GameState.playerStamina -= 0.5
-                        GameState.eletro -= 1
-                        updateResourcePanel()
-                    }) {
-                        GameState.maxPlayerHP += 2
-                        GameState.maxPlayerStamina += 2
-                        GameState.HPRestRate += 0.5
-                        GameState.staminaRestRate += 0.5
-                        GameState.hasWindchime = true
-                        GameState.upgradesAcquired++
-                        updateResourcePanel()
-                        tabContentFrame.post {
-                            switchTab("Main")
+                val craftWindchimeTask = {
+                    startTask(
+                        duration = 5000,
+                        label = "Building windchime...",
+                        perSecond = {
+                            GameState.playerStamina -= 0.5
+                            GameState.eletro -= 1
+                            updateResourcePanel()
+                        },
+                        onComplete = {
+                            GameState.maxPlayerHP += 2
+                            GameState.maxPlayerStamina += 2
+                            GameState.HPRestRate += 0.5
+                            GameState.staminaRestRate += 0.5
+                            GameState.hasWindchime = true
+                            GameState.upgradesAcquired++
+                            updateResourcePanel()
+                            tabContentFrame.post {
+                                switchTab("Main")
+                            }
                         }
-                    }
+                    )
                 }
+                craftWindchimeTask()
+                lastInterruptedTask = craftWindchimeTask
             })
         }
 
@@ -621,7 +648,7 @@ class MainActivity : AppCompatActivity() {
         val homeStatus = Button(this).apply {
             text = "Current Home: ${currentHome.name} (Space: ${GameState.space}/${GameState.maxSpace})"
             setOnClickListener {
-                showHomeDropdown(it)
+                showHomeModal()
             }
             setOnLongClickListener {
                 showDescriptionModal(currentHome.description)
@@ -648,9 +675,14 @@ class MainActivity : AppCompatActivity() {
                 text = if (f.maxAmount != null) "$owned/${f.maxAmount}" else "$owned"
             }
 
-            val actions = LinearLayout(this)
+            val actions = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+            }
+
             val buyBtn = Button(this).apply {
-                text = "Buy"
+                var modalShown = false
+                var modalHandler: Handler? = null
+                text = "B"
                 isEnabled = (f.maxAmount == null || owned < f.maxAmount) && (GameState.eletro >= f.cost.eletroCost)
                 setOnClickListener {
                     val current = GameState.furnitureOwned.getOrDefault(f.name, 0)
@@ -701,29 +733,76 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
 
-            setOnLongClickListener {
-                showDescriptionModal(f.effect)
-                true
-            }
-        }
-        actions.addView(buyBtn)
+                setOnTouchListener { v, event ->
+                    when (event.action) {
+                        MotionEvent.ACTION_DOWN -> {
+                            modalShown = false
+                            modalHandler = Handler(Looper.getMainLooper()).apply {
+                                postDelayed({
+                                    modalShown = true
+                                    showDescriptionModal(f.effect)
+                                }, 500)
+                            }
+                            true
+                        }
+                        MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                            modalHandler?.removeCallbacksAndMessages(null)
+                            modalHandler = null
 
-        val sellBtn = Button(this).apply {
-            text = "Sell"
-            isEnabled = owned > 0
-            setOnClickListener {
-                GameState.furnitureOwned[f.name] = owned - 1
-                GameState.space -= f.space
-                GameState.eletro += (f.cost.eletroCost / 2).toInt()
-                updateResourcePanel()
-                showHomeTab()
+                            if (modalShown) {
+                                hideDescriptionModal()
+                            } else if (event.action == MotionEvent.ACTION_UP) {
+                                v.performClick()
+                            }
+                            true
+                        }
+                        else -> false
+                    }
+                }
             }
-            setOnLongClickListener {
-                showDescriptionModal(f.effect)
-                true
+
+            val sellBtn = Button(this).apply {
+                var modalShown = false
+                var modalHandler: Handler? = null
+                text = "S"
+                isEnabled = owned > 0
+                setOnClickListener {
+                    GameState.furnitureOwned[f.name] = owned - 1
+                    GameState.space -= f.space
+                    GameState.eletro += (f.cost.eletroCost / 2).toInt()
+                    updateResourcePanel()
+                    showHomeTab()
+                }
+                setOnTouchListener { v, event ->
+                    when (event.action) {
+                        MotionEvent.ACTION_DOWN -> {
+                            modalShown = false
+                            modalHandler = Handler(Looper.getMainLooper()).apply {
+                                postDelayed({
+                                    modalShown = true
+                                    showDescriptionModal(f.effect)
+                                }, 500)
+                            }
+                            true
+                        }
+                        MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                            modalHandler?.removeCallbacksAndMessages(null)
+                            modalHandler = null
+
+                            if (modalShown) {
+                                hideDescriptionModal()
+                            } else if (event.action == MotionEvent.ACTION_UP) {
+                                v.performClick()
+                            }
+                            true
+                        }
+                        else -> false
+                    }
+                }
             }
-        }
-        actions.addView(sellBtn)
+
+            actions.addView(buyBtn)
+            actions.addView(sellBtn)
 
         row.addView(name)
         row.addView(space)
@@ -737,53 +816,86 @@ class MainActivity : AppCompatActivity() {
     tabContentFrame.addView(layout)
     }
 
-    private fun showHomeDropdown(view: View) {
-        val popupMenu = PopupMenu(this, view)
-        GameState.homes.forEachIndexed { index, home ->
-            popupMenu.menu.add(0, index, index, home.name)
-        }
-        val modalHandler = Handler(Looper.getMainLooper())
+    private fun showHomeModal() {
+        val dialog = Dialog(this)
+        dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
 
-        popupMenu.setOnMenuItemClickListener { menuItem ->
-            val selectedHome = GameState.homes[menuItem.order]
-            val currentHome = GameState.getHomeByName(GameState.currentHome)
-            if (selectedHome.name == currentHome.name) {
-                Toast.makeText(this, "You already live in the ${selectedHome.name}.", Toast.LENGTH_SHORT).show()
-                return@setOnMenuItemClickListener true
-            }
-
-            if (GameState.eletro < selectedHome.costEletro) {
-                Toast.makeText(this, "Not enough Eletro to move!", Toast.LENGTH_SHORT).show()
-                return@setOnMenuItemClickListener true
-            }
-            if (GameState.herbs < selectedHome.costHerbs) {
-                Toast.makeText(this, "Not enough Herbs to move!", Toast.LENGTH_SHORT).show()
-                return@setOnMenuItemClickListener true
-            }
-
-            GameState.eletro -= selectedHome.costEletro
-            GameState.herbs -= selectedHome.costHerbs
-            GameState.currentHome = selectedHome.name
-            GameState.maxSpace = selectedHome.maxSpace
-            GameState.space = minOf(GameState.space, GameState.maxSpace)
-
-            GameState.HPRestRate = 1.0
-            GameState.staminaRestRate = 1.0
-            GameState.HPRestRate += selectedHome.hpBonus
-            GameState.staminaRestRate += selectedHome.staminaBonus
-
-            updateResourcePanel()
-            showHomeTab()
-            Toast.makeText(this, "Moved to ${selectedHome.name}!", Toast.LENGTH_SHORT).show()
-            true
+        val overlay = FrameLayout(this).apply {
+            setBackgroundColor(Color.parseColor("#80000000")) // Semi-transparent black for 'blur'
         }
 
-        val menuView = popupMenu.menu
-        for (i in 0 until menuView.size()) {
-            val home = GameState.homes[i]
+        val modalContent = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(40, 40, 40, 40)
+            setBackgroundColor(Color.WHITE)
+            elevation = 12f
         }
 
-        popupMenu.show()
+        val scrollView = ScrollView(this).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+        }
+
+        val listLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+        }
+
+        for (home in GameState.homes) {
+            val box = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(24, 24, 24, 24)
+                setBackgroundColor(Color.TRANSPARENT) // borderless
+            }
+            box.addView(TextView(this).apply {
+                text = "${home.name} (Space: ${home.maxSpace})"
+                textSize = 18f
+            })
+            box.addView(TextView(this).apply {
+                text = home.description
+                textSize = 14f
+            })
+            val moveBtn = Button(this).apply {
+                text = if (GameState.currentHome == home.name) "Current" else "Move"
+                isEnabled = GameState.currentHome != home.name &&
+                        GameState.eletro >= home.costEletro &&
+                        GameState.herbs >= home.costHerbs
+                setOnClickListener {
+                    GameState.eletro -= home.costEletro
+                    GameState.herbs -= home.costHerbs
+                    GameState.currentHome = home.name
+                    GameState.maxSpace = home.maxSpace
+                    GameState.space = minOf(GameState.space, GameState.maxSpace)
+                    GameState.HPRestRate = 1.0 + home.hpBonus
+                    GameState.staminaRestRate = 1.0 + home.staminaBonus
+                    updateResourcePanel()
+                    showHomeTab()
+                    dialog.dismiss()
+                    Toast.makeText(context, "Moved to ${home.name}!", Toast.LENGTH_SHORT).show()
+                }
+            }
+            box.addView(moveBtn)
+            listLayout.addView(box)
+        }
+
+        scrollView.addView(listLayout)
+        modalContent.addView(scrollView)
+
+        // Step 5: Add close button
+        modalContent.addView(Button(this).apply {
+            text = "Close"
+            setOnClickListener { dialog.dismiss() }
+        })
+
+        // Step 6: Compose overlay and modal
+        val root = FrameLayout(this)
+        root.addView(overlay)
+        root.addView(modalContent)
+
+        dialog.setContentView(root)
+        dialog.setCancelable(true)
+        dialog.show()
     }
 
     private fun showSkillsTab() {
@@ -851,31 +963,31 @@ class MainActivity : AppCompatActivity() {
 
         val trainButton = addButton("[TASK] Train skill", "Train this skill for 5 EXP/sec", isTask = true) {
             if (GameState.canStartTask() && !GameState.isTraining && skill.level < skill.maxLevel) {
-                startTask(
-                    infinite = true, label = "Training ${skill.name}...", perSecond = {
-                        if (skill.level >= skill.maxLevel) {
-                            stopTask()
-                            Toast.makeText(this, "Skill is maxed!", Toast.LENGTH_SHORT).show()
-                        } else {
-                            GameSkills.trainSkill(skill, 5)
-                            expView.text = "${skill.exp} / ${skill.expToNext}"
-                            levelView.text = "${skill.level} / ${skill.maxLevel}"
+                val trainSkillTask = {
+                    startTask(
+                        infinite = true,
+                        label = "Training ${skill.name}...",
+                        perSecond = {
+                            if (skill.level >= skill.maxLevel) {
+                                stopTask()
+                                Toast.makeText(this, "Skill is maxed!", Toast.LENGTH_SHORT).show()
+                            } else {
+                                GameSkills.trainSkill(skill, 5)
+                                expView.text = "${skill.exp} / ${skill.expToNext}"
+                                levelView.text = "${skill.level} / ${skill.maxLevel}"
+                            }
                         }
-                    }
-                )
-            } else if (GameState.isTraining) {
-                stopTask()
-            } else if (skill.level >= skill.maxLevel) {
-                Toast.makeText(this, "Skill is already at max level!", Toast.LENGTH_SHORT).show()
-            } else {
-                Toast.makeText(this, "You cannot start another task right now.", Toast.LENGTH_SHORT).show()
+                    )
+                }
+                trainSkillTask()
+                lastInterruptedTask = trainSkillTask
             }
         }
-        trainButton.isEnabled = skill.canTrain()
-        bottomRow.addView(trainButton)
+            trainButton.isEnabled = skill.canTrain()
+            bottomRow.addView(trainButton)
 
-        box.addView(bottomRow)
-        return box
+            box.addView(bottomRow)
+            return box
     }
 
     private fun addButton(
@@ -930,7 +1042,6 @@ class MainActivity : AppCompatActivity() {
         onComplete: (() -> Unit)? = null
     ) {
         stopTask()
-
         GameState.isTaskRunning = true
         GameState.isResting = label.contains("Rest", ignoreCase = true)
 
@@ -941,6 +1052,12 @@ class MainActivity : AppCompatActivity() {
         val task = object : Runnable {
             override fun run() {
                 if (!GameState.isTaskRunning) return
+
+                if ((GameState.playerHP <= 0 || GameState.playerStamina <= 0) && !GameState.isResting) {
+                    stopTask()
+                    startRestTask()
+                    return
+                }
 
                 perSecond()
 
@@ -961,10 +1078,31 @@ class MainActivity : AppCompatActivity() {
                 handler.postDelayed(this, interval)
             }
         }
-
         handler.post(task)
         taskHandler = handler
         taskRunnable = task
+    }
+
+    private fun startRestTask() {
+        GameState.isResting = true
+        startTask(
+            infinite = true,
+            label = "Resting...",
+            perSecond = {
+                GameState.playerHP = (GameState.playerHP + GameState.HPRestRate).coerceAtMost(GameState.maxPlayerHP)
+                GameState.playerStamina = (GameState.playerStamina + GameState.staminaRestRate).coerceAtMost(GameState.maxPlayerStamina)
+                updateResourcePanel()
+                if (GameState.playerHP >= GameState.maxPlayerHP && GameState.playerStamina >= GameState.maxPlayerStamina) {
+                    stopTask()
+                    GameState.isResting = false
+                    lastInterruptedTask?.let {
+                        val toResume = it
+                        lastInterruptedTask = null
+                        toResume()
+                    }
+                }
+            }
+        )
     }
 
     private fun stopTask() {
