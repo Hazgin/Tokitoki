@@ -115,13 +115,31 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showDescriptionModal(description: String) {
-        modalText.text = description
-        modalContainer.visibility = View.VISIBLE
+        val dialog = Dialog(this)
+        dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
 
-        rootLayout.animate()
-            .alpha(0.3f)
-            .setDuration(200)
-            .start()
+        val overlay = FrameLayout(this).apply {
+            setBackgroundColor(Color.parseColor("#80000000"))
+        }
+
+        val modalContent = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(40, 40, 40, 40)
+            setBackgroundColor(Color.WHITE)
+            val descView = TextView(this@MainActivity).apply {
+                text = description
+                textSize = 16f
+            }
+            addView(descView)
+        }
+
+        val root = FrameLayout(this)
+        root.addView(overlay)
+        root.addView(modalContent)
+
+        dialog.setContentView(root)
+        dialog.setCancelable(true)
+        dialog.show()
     }
 
     private fun hideDescriptionModal() {
@@ -174,7 +192,10 @@ class MainActivity : AppCompatActivity() {
         if (GameState.eletro >= 40.0) {
             GameState.unlockTab("Skills")
         }
-        val tabs = listOf("Main", "Stats", "Home", "Skills")
+        if (GameSkills.tokiSkills.find { it.name == "Running" }?.level ?: 0 >= 2) {
+            GameState.unlockTab("Quest")
+        }
+        val tabs = listOf("Main", "Stats", "Home", "Skills", "Quest")
         for (tab in tabs) {
             if (tab in GameState.unlockedTabs) {
                 val button = Button(this).apply {
@@ -194,6 +215,7 @@ class MainActivity : AppCompatActivity() {
             "Stats" -> showStatsTab()
             "Home" -> showHomeTab()
             "Skills" -> showSkillsTab()
+            "Quest" -> showQuestTab()
         }
     }
 
@@ -279,7 +301,7 @@ class MainActivity : AppCompatActivity() {
             resourcePanel.addView(makeStatLine("Knowledge: $knowledge / $maxKnowledge"))
         }
 
-        resourcePanel.addView(makeHeader("Food:"))
+        if (GameState.maxMilk > 0 || GameState.maxGrain > 0) {resourcePanel.addView(makeHeader("Food:"))}
 
         val meat = "%.1f".format(GameState.meat)
         val maxMeat = "%.1f".format(GameState.maxMeat)
@@ -357,7 +379,7 @@ class MainActivity : AppCompatActivity() {
         }
         layout.addView(affluenceTitle)
 
-        layout.addView(addButton("[ACTION] Beg for money", "Costs 1 Stamina, gives 1 Eletro") {
+        layout.addView(addButton("[ACTION] Do Chores", "Costs 1 Stamina, gives 1 Eletro") {
             if (GameState.playerStamina >= 1 && GameState.eletro < GameState.maxEletro) {
                 GameState.playerStamina -= 1
                 GameState.eletro += 1
@@ -368,6 +390,20 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         })
+
+        if (GameState.herbs > 2) {
+            layout.addView(addButton("[ACTION] Sell Herbs", "Costs 2 Herb, gives 5 Eletro") {
+                if (GameState.herbs >= 2 && GameState.eletro < GameState.maxEletro) {
+                    GameState.herbs -= 2
+                    GameState.eletro += 5
+                    GameState.alltimeEletro += 5
+                    updateResourcePanel()
+                    tabContentFrame.post {
+                        switchTab("Main")
+                    }
+                }
+            })
+        }
 
         layout.addView(addButton("[TASK] Clean stables", "10s task: 1 Stamina/s, gives 12 Eletro", isTask = true) {
             val cleanStablesTask = {
@@ -449,12 +485,89 @@ class MainActivity : AppCompatActivity() {
             })
         }
 
+        if (GameState.maxMeat > 0) {
+            layout.addView(addButton("[ACTION] Butcher meat", "Offer to butcher some meat for your cousin in exchange of a part of the product.\n\nCosts 1 Stamina, Gives 1 Meat") {
+                if (GameState.playerStamina >= 1 && GameState.meat < GameState.maxMeat) {
+                    GameState.playerStamina -= 1
+                    GameState.meat += 1
+                    GameState.alltimeMeat += 1
+                    updateResourcePanel()
+                    tabContentFrame.post {
+                        switchTab("Main")
+                    }
+                }
+            })
+        }
+
         if (GameState.maxMilk > 0) {
             layout.addView(addButton("[ACTION] Milk cow", "Get some milk from one of you kind cousin's cows.\n\nCosts 1 Eletro, gives 1 Milk") {
                 if (GameState.eletro >= 1 && GameState.milk < GameState.maxMilk) {
                     GameState.eletro -= 1
                     GameState.milk += 1
                     GameState.alltimeMilk += 1
+                    updateResourcePanel()
+                    tabContentFrame.post {
+                        switchTab("Main")
+                    }
+                }
+            })
+        }
+
+        if (GameState.maxBerries > 0 && GameState.maxGrain > 0) {
+            layout.addView(addButton("[TASK] Forrage", "Infinite task: -1 stamina/second.\n\nRandom chance to find Berries, Fruit, Roots, Mushrooms, or Grain each second.", isTask = true) {
+                if (GameState.isTaskRunning) {
+                    stopTask()
+                } else if (GameState.canStartTask()) {
+                    val forrageTask = {
+                        startTask(
+                            infinite = true,
+                            label = "Forraging...",
+                            perSecond = {
+                                GameState.playerStamina -= 1.0
+                                if (GameState.playerStamina < 0) {
+                                    stopTask()
+                                    return@startTask
+                                }
+                                val rand = Math.random()
+                                when {
+                                    rand < 0.25 -> {
+                                        GameState.berries += 1
+                                        GameState.alltimeBerries += 1
+                                    }
+                                    rand < 0.35 -> {
+                                        GameState.fruit += 1
+                                        GameState.alltimeFruit += 1
+                                    }
+                                    rand < 0.40 -> {
+                                        GameState.roots += 1
+                                        GameState.alltimeRoots += 1
+                                    }
+                                    rand < 0.45 -> {
+                                        GameState.mushrooms += 1
+                                        GameState.alltimeMushrooms += 1
+                                    }
+                                    rand < 0.50 -> {
+                                        GameState.grain += 1
+                                        GameState.alltimeGrain += 1
+                                    }
+                                    // else, nothing found this second
+                                }
+                                updateResourcePanel()
+                            }
+                        )
+                    }
+                    forrageTask()
+                    lastInterruptedTask = forrageTask
+                }
+            })
+        }
+
+        if (GameState.maxSpice > 0) {
+            layout.addView(addButton("[ACTION] Buy Spice", "Get some spice from nearby merchants.\n\nCosts 10 Eletro, gives 0.2 Spice") {
+                if (GameState.eletro >= 10 && GameState.spice < GameState.maxSpice) {
+                    GameState.eletro -= 10
+                    GameState.spice += 0.2
+                    GameState.alltimeSpice += 0.2
                     updateResourcePanel()
                     tabContentFrame.post {
                         switchTab("Main")
@@ -471,17 +584,26 @@ class MainActivity : AppCompatActivity() {
         if (GameState.scrolls > 0) {layout.addView(studyTitle)}
 
         if (GameState.scrolls > 0) {
-            layout.addView(addButton("[TASK] Study", "Infinite task: -1 stamina per second. Knowledge gained dependent on available study materials.", isTask = true) {
-                if (GameState.playerStamina <= 0) {
-                    stopTask()
-                } else if (GameState.canStartTask()) {
-                    startTask(infinite = true, label = "Studying...", perSecond = {
-                        GameState.playerStamina -= 1
-                        GameState.knowledge += (GameState.scrolls/10)
-                        updateResourcePanel()
-                    })
-                }
-            })
+            layout.addView(
+                addButton(
+                    "[TASK] Study",
+                    "Infinite task: -1 stamina per second. Knowledge gained dependent on available study materials.",
+                    isTask = true
+                ) {
+                    val taskStudy = {
+                        startTask(
+                            duration = 10_000,
+                            label = "Cleaning stables...",
+                            perSecond = {
+                                GameState.playerStamina -= 1
+                                GameState.knowledge += (GameState.scrolls/10)
+                                updateResourcePanel()
+                            },
+                        )
+                    }
+                    taskStudy()
+                    lastInterruptedTask = taskStudy
+                })
         }
 
         val upgradesTitle = TextView(this).apply {
@@ -506,6 +628,20 @@ class MainActivity : AppCompatActivity() {
             })
         }
 
+        if (!GameState.hasPurse && GameState.eletro >= 20) {
+            layout.addView(addButton("[ACTION] Buy Purse", "Costs 20 Eletro, +25 Max Eletro") {
+                if (GameState.eletro >= 20) {
+                    GameState.eletro -= 20
+                    GameState.maxEletro += 25
+                    GameState.hasPurse = true
+                    GameState.upgradesAcquired++
+                    tabContentFrame.post {
+                        switchTab("Main")
+                    }
+                }
+            })
+        }
+
         val craftingTitle = TextView(this).apply {
             text = "\nCrafting"
             textSize = 18f
@@ -514,7 +650,7 @@ class MainActivity : AppCompatActivity() {
         layout.addView(craftingTitle)
 
         if (!GameState.hasWindchime) {
-            layout.addView(addButton("[TASK] Windchime", "5s task: 0.5 Stamina/s & 1 Eletro/s", isTask = true) {
+            layout.addView(addButton("[TASK] Windchime", "Build a soothing wincchime.\n5s task: 0.5 Stamina/s & 1 Eletro/s.\n\nRaises Max HP and Stamina, as well as recovery during rest.", isTask = true) {
                 val craftWindchimeTask = {
                     startTask(
                         duration = 5000,
@@ -543,20 +679,6 @@ class MainActivity : AppCompatActivity() {
             })
         }
 
-        if (!GameState.hasPurse && GameState.eletro >= 20) {
-            layout.addView(addButton("[ACTION] Buy Purse", "Costs 20 Eletro, +25 Max Eletro") {
-                if (GameState.eletro >= 20) {
-                    GameState.eletro -= 20
-                    GameState.maxEletro += 25
-                    GameState.hasPurse = true
-                    GameState.upgradesAcquired++
-                    tabContentFrame.post {
-                        switchTab("Main")
-                    }
-                }
-            })
-        }
-
         val tokiTitle = TextView(this).apply {
             text = "\nToki Handling"
             textSize = 18f
@@ -566,7 +688,7 @@ class MainActivity : AppCompatActivity() {
         if (GameState.alltimeEletro >= 5) {layout.addView(tokiTitle)}
 
         if (GameState.alltimeEletro >= 5) {
-            layout.addView(addButton("[ACTION] Feed Eletro", "Costs 5 Eletro, Helps the toki grow big") {
+            layout.addView(addButton("[ACTION] Feed Eletro", "Costs 5 Eletro, Helps the toki grow big.\n\nIts eyes shine when you offer it the coins...") {
                 if (GameState.eletro >= 5) {
                     GameState.eletro -= 5
                     GameState.eletroFed += 5
@@ -578,10 +700,11 @@ class MainActivity : AppCompatActivity() {
         }
 
         if (GameState.alltimeMilk >= 5) {
-            layout.addView(addButton("[ACTION] Feed Milk", "Costs 2 Milk, Helps the toki grow strong") {
+            layout.addView(addButton("[ACTION] Feed Milk", "Costs 2 Milk, Helps the toki grow strong.\n\nIt hits the ground with its hooves and huffs as you offer the bottle.") {
                 if (GameState.milk >= 2) {
                     GameState.milk -= 2
                     GameState.milkFed += 2
+                    GameState.maxTokiHP += 1
                     tabContentFrame.post {
                         switchTab("Main")
                     }
@@ -590,10 +713,102 @@ class MainActivity : AppCompatActivity() {
         }
 
         if (GameState.alltimeHerbs >= 5) {
-            layout.addView(addButton("[ACTION] Feed Herbs", "Costs 2 Herbs, Helps the toki grow wise") {
+            layout.addView(addButton("[ACTION] Feed Herbs", "Costs 2 Herbs, Helps the toki grow wise.\n\nIt waits patiently as you offer the grasses.") {
                 if (GameState.herbs >= 2) {
                     GameState.herbs -= 2
                     GameState.herbsFed += 2
+                    GameState.maxTokiStamina += 1
+                    tabContentFrame.post {
+                        switchTab("Main")
+                    }
+                }
+            })
+        }
+
+        if (GameState.alltimeMeat >= 5) {
+            layout.addView(addButton("[ACTION] Feed Meat", "Costs 2 Meat, Helps the toki grow strong.\n\nIt shakes and its breath gets funny when it smells the meat.") {
+                if (GameState.meat >= 2) {
+                    GameState.meat -= 2
+                    GameState.meatFed += 2
+                    GameState.maxTokiHP += 1
+                    tabContentFrame.post {
+                        switchTab("Main")
+                    }
+                }
+            })
+        }
+
+        if (GameState.alltimeBones >= 5) {
+            layout.addView(addButton("[ACTION] Feed Bones", "Costs 2 Bones, Helps the toki grow strong.\n\nIt looks at you firmly and huffs when you offer the bones.") {
+                if (GameState.bones >= 2) {
+                    GameState.bones -= 2
+                    GameState.bonesFed += 2
+                    GameState.maxTokiHP += 1
+                    tabContentFrame.post {
+                        switchTab("Main")
+                    }
+                }
+            })
+        }
+
+        if (GameState.alltimeBerries >= 5) {
+            layout.addView(addButton("[ACTION] Feed Berries", "Costs 2 Berries, Helps the toki grow wise.\n\nIt sniffs the handful of berries cautiously when you offer them. ") {
+                if (GameState.milk >= 2) {
+                    GameState.milk -= 2
+                    GameState.milkFed += 2
+                    GameState.maxTokiStamina += 1
+                    tabContentFrame.post {
+                        switchTab("Main")
+                    }
+                }
+            })
+        }
+
+        if (GameState.alltimeRoots >= 5) {
+            layout.addView(addButton("[ACTION] Feed Roots", "Costs 2 Roots, Helps the toki grow sharp.\n\nIt bows dramatically when you offer it the roots.") {
+                if (GameState.roots >= 2) {
+                    GameState.roots -= 2
+                    GameState.rootsFed += 2
+                    GameState.maxTokiStamina += 1
+                    tabContentFrame.post {
+                        switchTab("Main")
+                    }
+                }
+            })
+        }
+
+        if (GameState.alltimeGrain >= 5) {
+            layout.addView(addButton("[ACTION] Feed Grain", "Costs 2 Grain, Helps the toki grow vigorous.\n\nIt impatiently skips around when you offer it the grain.") {
+                if (GameState.grain >= 2) {
+                    GameState.grain -= 2
+                    GameState.grainFed += 2
+                    GameState.maxTokiStamina += 1
+                    tabContentFrame.post {
+                        switchTab("Main")
+                    }
+                }
+            })
+        }
+
+        if (GameState.alltimeFruit >= 5) {
+            layout.addView(addButton("[ACTION] Feed Fruit", "Costs 2 Fruit, Helps the toki grow vigorous.\n\nIt spins in place and wags its tail when you offer it the fruits.") {
+                if (GameState.fruit >= 2) {
+                    GameState.fruit -= 2
+                    GameState.fruitFed += 2
+                    GameState.maxTokiHP += 1
+                    tabContentFrame.post {
+                        switchTab("Main")
+                    }
+                }
+            })
+        }
+
+        if (GameState.alltimeSpice >= 5) {
+            layout.addView(addButton("[ACTION] Feed Spice", "Costs 0.5 Spice, Helps the toki grow sharp.\n\nIt tilts it head and bows when you offer the handful of spice, curiosity in its eyes.") {
+                if (GameState.spice >= 1) {
+                    GameState.spice -= 0.5
+                    GameState.spiceFed += 0.5
+                    GameState.maxTokiStamina += 1
                     tabContentFrame.post {
                         switchTab("Main")
                     }
@@ -606,14 +821,55 @@ class MainActivity : AppCompatActivity() {
             textSize = 18f
             setPadding(8, 16, 8, 8)
         }
-        if (GameState.alltimeFed >= 5) {layout.addView(evolveTitle)}
+        if (GameState.alltimeFed >= 50) {layout.addView(evolveTitle)}
 
         if (GameState.alltimeFed >= 50 && GameState.milkFed+GameState.meatFed >= 30) {
-            layout.addView(addButton("Warhorse", "Allows your toki to evolve into a Warhorse, a strong form focused in battle.\n\n•Learns martial skills quicker.\n•Deals more damage to enemies.\n•Has more HP.") {
+            layout.addView(addButton("Warhorse", "Allows your toki to evolve into a Warhorse, a strong form focused in crushing foes.\n\n•Learns martial skills quicker.\n•Deals more damage to enemies.\n•Has more HP.") {
                     {
                     GameState.tokiLvl = 1.0
-                    GameState.tokiHP = 20.0
-                    GameState.tokiHPRate = 0.75
+                    GameState.tokiHP = GameState.tokiHP * 0.75
+                    GameState.tokiHPRate =+ 0.75
+                    tabContentFrame.post {
+                        switchTab("Main")
+                    }
+                }
+            })
+        }
+
+        if (GameState.alltimeFed >= 50 && GameState.fruitFed+GameState.grainFed >= 30) {
+            layout.addView(addButton("Racehorse", "Allows your toki to evolve into a Racehorse, a nimble form focused in mobility.\n\n•May travel additional distance.\n•Dodges enemies easily.\n•Has more Stamina.") {
+                {
+                    GameState.tokiLvl = 1.0
+                    GameState.tokiStamina = GameState.tokiStamina * 0.75
+                    GameState.tokiStaminaRate =+ 0.75
+                    tabContentFrame.post {
+                        switchTab("Main")
+                    }
+                }
+            })
+        }
+
+        if (GameState.alltimeFed >= 50 && GameState.herbsFed+GameState.berriesFed >= 30) {
+            layout.addView(addButton("Wildhorse", "Allows your toki to evolve into a Wildhorse, a wise form focused in travelling and forraging.\n\n•May travel additional distance.\n•Can scavenge and forrage better.\n•Carries more items.") {
+                {
+                    GameState.tokiLvl = 1.0
+                    GameState.maxHerbs = GameState.maxHerbs * 0.75
+                    GameState.maxRoots = GameState.maxRoots * 0.75
+                    GameState.maxBerries = GameState.maxBerries * 0.75
+                    GameState.maxMushrooms = GameState.maxMushrooms * 0.75
+                    tabContentFrame.post {
+                        switchTab("Main")
+                    }
+                }
+            })
+        }
+
+        if (GameState.alltimeFed >= 50 && GameState.spiceFed+GameState.rootsFed >= 30) {
+            layout.addView(addButton("Trickhorse", "Allows your toki to evolve into a Trickhorse, an intelligent form which may learn much more than mundane horses.\n\n•Learns all skills quicker.\n•Can perform moves and abilities better.\n•Helps you acquire knowledge.") {
+                {
+                    GameState.tokiLvl = 1.0
+                    GameState.maxKnowledge = GameState.maxKnowledge * 0.75
+                    GameState.tokiHPRate =+ 0.75
                     tabContentFrame.post {
                         switchTab("Main")
                     }
@@ -636,10 +892,28 @@ class MainActivity : AppCompatActivity() {
         }
 
         layout.addView(upgradesText)
+
+        val moneyText = TextView(this).apply {
+            text = "Lifetime money acquired: ${GameState.alltimeEletro}"
+            textSize = 18f
+        }
+
+        layout.addView(moneyText)
+
         tabContentFrame.addView(layout)
     }
 
+
+
     private fun showHomeTab() {
+        val parentLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.MATCH_PARENT
+            )
+        }
+
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
         }
@@ -647,9 +921,7 @@ class MainActivity : AppCompatActivity() {
         val currentHome = GameState.getHomeByName(GameState.currentHome)
         val homeStatus = Button(this).apply {
             text = "Current Home: ${currentHome.name} (Space: ${GameState.space}/${GameState.maxSpace})"
-            setOnClickListener {
-                showHomeModal()
-            }
+            setOnClickListener { showHomeModal() }
             setOnLongClickListener {
                 showDescriptionModal(currentHome.description)
                 true
@@ -675,64 +947,89 @@ class MainActivity : AppCompatActivity() {
                 text = if (f.maxAmount != null) "$owned/${f.maxAmount}" else "$owned"
             }
 
-            val actions = LinearLayout(this).apply {
-                orientation = LinearLayout.HORIZONTAL
-            }
+            val actions = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
 
-            val buyBtn = Button(this).apply {
+            val actionBtn = Button(this).apply {
                 var modalShown = false
                 var modalHandler: Handler? = null
-                text = "B"
-                isEnabled = (f.maxAmount == null || owned < f.maxAmount) && (GameState.eletro >= f.cost.eletroCost)
-                setOnClickListener {
-                    val current = GameState.furnitureOwned.getOrDefault(f.name, 0)
+                text = if (GameState.isSellMode) "Sell" else "Buy"
+                isEnabled = if (GameState.isSellMode) owned > 0 else (f.maxAmount == null || owned < f.maxAmount) && (GameState.eletro >= f.cost.eletroCost)
 
-                    if (f.tags.contains("Resting place")) {
-                        for ((key, amount) in GameState.furnitureOwned) {
-                            val f2 = GameState.furnitureList.find { it.name == key } ?: continue
-                            if (f2.tags.contains("Resting place") && key != f.name && amount > 0) {
-                                GameState.furnitureOwned[key] = 0
-                                GameState.space -= f2.space * amount
+                setOnClickListener {
+                    if (GameState.isSellMode) {
+                        if (owned > 0) {
+                            GameState.furnitureOwned[f.name] = owned - 1
+                            GameState.space += f.space
+                            GameState.eletro += (f.cost.eletroCost / 2).toInt()
+                            when (f.name) {
+                                "Box" -> GameState.maxEletro -= 25
+                                "Scroll rack" -> GameState.maxScrolls -= 15
+                                "Windowbox" -> {
+                                    GameState.maxHerbs -= 15
+                                    GameState.maxMushrooms -= 5
+                                }
+                                "Cot" -> {
+                                    GameState.HPRestRate -= 0.5
+                                    GameState.staminaRestRate -= 0.5
+                                }
+                                "Food cabinet" -> {
+                                    GameState.maxRoots -= 10
+                                    GameState.maxGrain -= 10
+                                    GameState.maxBones -= 10
+                                    GameState.maxSpice -= 1
+                                }
+                                "Food pot" -> {
+                                    GameState.maxMilk -= 10
+                                    GameState.maxMeat -= 10
+                                    GameState.maxBerries -= 10
+                                    GameState.maxFruit -= 10
+                                }
+                            }
+                            updateResourcePanel()
+                            showHomeTab()
+                        }
+                    } else {
+                        val current = GameState.furnitureOwned.getOrDefault(f.name, 0)
+                        if (f.tags.contains("Resting place")) {
+                            for ((key, amount) in GameState.furnitureOwned) {
+                                val f2 = GameState.furnitureList.find { it.name == key } ?: continue
+                                if (f2.tags.contains("Resting place") && key != f.name && amount > 0) {
+                                    GameState.furnitureOwned[key] = 0
+                                    GameState.space -= f2.space * amount
+                                }
                             }
                         }
-                    }
-
-                    GameState.eletro -= f.cost.eletroCost
-                    GameState.furnitureOwned[f.name] = current + 1
-                    GameState.space -= f.space
-
-                    when (f.name) {
-                        "Box" -> GameState.maxEletro += 25
-                        "Scroll rack" -> {
-                            GameState.maxScrolls += 15
+                        GameState.eletro -= f.cost.eletroCost
+                        GameState.furnitureOwned[f.name] = current + 1
+                        GameState.space -= f.space
+                        when (f.name) {
+                            "Box" -> GameState.maxEletro += 25
+                            "Scroll rack" -> GameState.maxScrolls += 15
+                            "Windowbox" -> {
+                                GameState.maxHerbs += 15
+                                GameState.maxMushrooms += 5
+                            }
+                            "Cot" -> {
+                                GameState.HPRestRate += 0.5
+                                GameState.staminaRestRate += 0.5
+                            }
+                            "Food cabinet" -> {
+                                GameState.maxRoots += 10
+                                GameState.maxGrain += 10
+                                GameState.maxBones += 10
+                                GameState.maxSpice += 1
+                            }
+                            "Food pot" -> {
+                                GameState.maxMilk += 10
+                                GameState.maxMeat += 10
+                                GameState.maxBerries += 10
+                                GameState.maxFruit += 10
+                            }
                         }
-                        "Windowbox" -> {
-                            GameState.maxHerbs += 15
-                            GameState.maxMushrooms += 5
-                        }
-                        "Cot" -> {
-                            GameState.HPRestRate += 0.5
-                            GameState.staminaRestRate += 0.5
-                        }
-                        "Food cabinet" -> {
-                            GameState.maxRoots += 10
-                            GameState.maxGrain += 10
-                            GameState.maxBones += 10
-                            GameState.maxSpice += 1
-                        }
-                        "Food pot" -> {
-                            GameState.maxMilk += 10
-                            GameState.maxMeat += 10
-                            GameState.maxBerries += 10
-                            GameState.maxFruit += 10
-                        }
-                    }
-
-                    tabContentFrame.post {
-                        switchTab("Home")
+                        updateResourcePanel()
+                        showHomeTab()
                     }
                 }
-
                 setOnTouchListener { v, event ->
                     when (event.action) {
                         MotionEvent.ACTION_DOWN -> {
@@ -748,7 +1045,6 @@ class MainActivity : AppCompatActivity() {
                         MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                             modalHandler?.removeCallbacksAndMessages(null)
                             modalHandler = null
-
                             if (modalShown) {
                                 hideDescriptionModal()
                             } else if (event.action == MotionEvent.ACTION_UP) {
@@ -761,60 +1057,41 @@ class MainActivity : AppCompatActivity() {
                 }
             }
 
-            val sellBtn = Button(this).apply {
-                var modalShown = false
-                var modalHandler: Handler? = null
-                text = "S"
-                isEnabled = owned > 0
-                setOnClickListener {
-                    GameState.furnitureOwned[f.name] = owned - 1
-                    GameState.space -= f.space
-                    GameState.eletro += (f.cost.eletroCost / 2).toInt()
-                    updateResourcePanel()
-                    showHomeTab()
-                }
-                setOnTouchListener { v, event ->
-                    when (event.action) {
-                        MotionEvent.ACTION_DOWN -> {
-                            modalShown = false
-                            modalHandler = Handler(Looper.getMainLooper()).apply {
-                                postDelayed({
-                                    modalShown = true
-                                    showDescriptionModal(f.effect)
-                                }, 500)
-                            }
-                            true
-                        }
-                        MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                            modalHandler?.removeCallbacksAndMessages(null)
-                            modalHandler = null
+            actions.addView(actionBtn)
+            row.addView(name)
+            row.addView(space)
+            row.addView(count)
+            row.addView(actions)
+            table.addView(row)
+        }
 
-                            if (modalShown) {
-                                hideDescriptionModal()
-                            } else if (event.action == MotionEvent.ACTION_UP) {
-                                v.performClick()
-                            }
-                            true
-                        }
-                        else -> false
-                    }
-                }
+        layout.addView(table)
+        parentLayout.addView(layout, LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            0,
+            1f
+        ))
+
+        val sellModeCheckbox = CheckBox(this).apply {
+            text = "Sell mode"
+            isChecked = GameState.isSellMode
+            setOnCheckedChangeListener { _, checked ->
+                GameState.isSellMode = checked
+                showHomeTab()
             }
+        }
+        val bottomBar = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL or Gravity.BOTTOM
+            setPadding(24, 12, 24, 12)
+            addView(sellModeCheckbox)
+        }
+        parentLayout.addView(bottomBar)
 
-            actions.addView(buyBtn)
-            actions.addView(sellBtn)
-
-        row.addView(name)
-        row.addView(space)
-        row.addView(count)
-        row.addView(actions)
-        table.addView(row)
+        tabContentFrame.removeAllViews()
+        tabContentFrame.addView(parentLayout)
     }
 
-    layout.addView(table)
-    tabContentFrame.removeAllViews()
-    tabContentFrame.addView(layout)
-    }
 
     private fun showHomeModal() {
         val dialog = Dialog(this)
@@ -866,9 +1143,9 @@ class MainActivity : AppCompatActivity() {
                     GameState.herbs -= home.costHerbs
                     GameState.currentHome = home.name
                     GameState.maxSpace = home.maxSpace
-                    GameState.space = minOf(GameState.space, GameState.maxSpace)
-                    GameState.HPRestRate = 1.0 + home.hpBonus
-                    GameState.staminaRestRate = 1.0 + home.staminaBonus
+                    GameState.space = (home.maxSpace - GameState.space)
+                    GameState.homeHPrest = home.hpBonus
+                    GameState.homeStaminarest = home.staminaBonus
                     updateResourcePanel()
                     showHomeTab()
                     dialog.dismiss()
@@ -882,13 +1159,11 @@ class MainActivity : AppCompatActivity() {
         scrollView.addView(listLayout)
         modalContent.addView(scrollView)
 
-        // Step 5: Add close button
         modalContent.addView(Button(this).apply {
             text = "Close"
             setOnClickListener { dialog.dismiss() }
         })
 
-        // Step 6: Compose overlay and modal
         val root = FrameLayout(this)
         root.addView(overlay)
         root.addView(modalContent)
@@ -988,6 +1263,275 @@ class MainActivity : AppCompatActivity() {
 
             box.addView(bottomRow)
             return box
+    }
+
+    private fun showQuestTab() {
+        // Are we in an encounter?
+        if (GameState.currentQuest != null && GameState.currentEncounterIndex != null) {
+            val encounter = GameState.currentQuest!!.encounters[GameState.currentEncounterIndex!!]
+            when (encounter) {
+                is Encounter.Combat -> showCombatEncounter(encounter)
+                is Encounter.Exploration -> showExplorationEncounter(encounter)
+            }
+            return
+        }
+
+        // Otherwise, show quest location select UI
+        val scrollView = ScrollView(this)
+        val gridLayout = GridLayout(this).apply {
+            columnCount = 2
+            orientation = GridLayout.HORIZONTAL
+            setPadding(16, 16, 16, 16)
+        }
+
+        for (loc in GameState.questLocations) {
+            // Only show if unlocked (or unlocked by default)
+            val unlocked = GameState.unlockedQuestLocations.contains(loc.id) ||
+                    (loc.requiredSkill == "Running" && (GameSkills.tokiSkills.find { it.name == "Running" }?.level ?: 0) >= loc.requiredSkillLevel)
+            if (!unlocked) continue
+
+            val box = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                setBackgroundColor(android.graphics.Color.TRANSPARENT)
+                setPadding(18, 18, 18, 18)
+            }
+
+            val nameView = TextView(this).apply {
+                text = loc.name
+                textSize = 18f
+                gravity = Gravity.CENTER_HORIZONTAL
+            }
+            box.addView(nameView)
+
+            val descView = TextView(this).apply {
+                text = loc.description
+                textSize = 12f
+            }
+            box.addView(descView)
+
+            val counter = TextView(this).apply {
+                val done = loc.encountersCompleted(GameState.questProgress)
+                val total = loc.totalEncounters()
+                text = "$done/$total"
+                textSize = 14f
+                setPadding(0, 8, 0, 0)
+            }
+            box.addView(counter)
+
+            val embarkBtn = Button(this).apply {
+                text = "Embark"
+                isEnabled = loc.encountersCompleted(GameState.questProgress) < loc.totalEncounters()
+                setOnClickListener {
+                    GameState.currentQuest = loc
+                    GameState.currentEncounterIndex = loc.encountersCompleted(GameState.questProgress)
+                    GameState.currentEncounter = loc.encounters[GameState.currentEncounterIndex!!]
+                    when (val e = GameState.currentEncounter) {
+                        is Encounter.Combat -> {
+                            // Set up combatants
+                            GameState.currentCombatAllies = mutableListOf(
+                                CombatParticipant(GameState.playerName ?: "Player",
+                                    GameState.playerHP, GameState.maxPlayerHP, 2.0, 1.0, true),
+                                CombatParticipant(GameState.tokiName ?: "Toki",
+                                    GameState.tokiHP, GameState.maxTokiHP, 1.2, 1.2, true)
+                            )
+                            GameState.currentCombatEnemies = e.enemies.map { it.copy() }.toMutableList()
+                            GameState.combatLog = mutableListOf("${e.name}: ${e.description}")
+                        }
+                        is Encounter.Exploration -> {
+                            GameState.explorationStress = Triple(0, 0, 0)
+                            GameState.explorationTimerMillis = System.currentTimeMillis() + e.baseDurationSec * 1000
+                        }
+
+                        null -> TODO()
+                    }
+                    showQuestTab()
+                }
+            }
+            val bottomRow = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                addView(counter, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+                addView(embarkBtn)
+            }
+            box.addView(bottomRow)
+            gridLayout.addView(box)
+        }
+
+        scrollView.addView(gridLayout)
+        tabContentFrame.addView(scrollView)
+    }
+
+    private fun showCombatEncounter(encounter: Encounter.Combat) {
+        val layout = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+
+        val topRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        val alliesView = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        for (ally in GameState.currentCombatAllies) {
+            val t = TextView(this)
+            t.text = "${ally.participantName}: ${ally.hp}/${ally.maxHp} HP"
+            alliesView.addView(t)
+        }
+        topRow.addView(alliesView, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+
+        val enemiesView = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        for (enemy in GameState.currentCombatEnemies) {
+            val t = TextView(this)
+            t.text = "${enemy.participantName}: ${enemy.hp}/${enemy.maxHp} HP"
+            enemiesView.addView(t)
+        }
+        topRow.addView(enemiesView, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        layout.addView(topRow)
+
+        val logView = TextView(this)
+        logView.text = GameState.combatLog.takeLast(10).joinToString("\n")
+        layout.addView(logView)
+
+        tabContentFrame.removeAllViews()
+        tabContentFrame.addView(layout)
+
+        if (!GameState.isTaskRunning) {
+            GameState.isTaskRunning = true
+            Handler(Looper.getMainLooper()).postDelayed({ runCombatRound(encounter) }, 1000)
+        }
+    }
+
+    private fun runCombatRound(encounter: Encounter.Combat) {
+        if (!GameState.isTaskRunning) return
+
+        for (ally in GameState.currentCombatAllies.filter { it.hp > 0 }) {
+            val target = GameState.currentCombatEnemies.firstOrNull { it.hp > 0 }
+            if (target != null) {
+                val dmg = ally.attackPower
+                target.hp -= dmg
+                GameState.combatLog.add("${ally.participantName} attacks ${target.participantName} for $dmg!")
+                if (target.hp <= 0) {
+                    GameState.combatLog.add("${target.participantName} is defeated!")
+                    for (drop in encounter.possibleDrops) {
+                        if (Math.random() < drop.chance) {
+                            GameState.combatLog.add("${target.participantName} dropped ${drop.amount} ${drop.item}!")
+                            // TODO: Actually grant drops to player inventory ):
+                        }
+                    }
+                }
+            }
+        }
+        for (enemy in GameState.currentCombatEnemies.filter { it.hp > 0 }) {
+            val target = GameState.currentCombatAllies.firstOrNull { it.hp > 0 }
+            if (target != null) {
+                val dmg = enemy.attackPower
+                target.hp -= dmg
+                GameState.combatLog.add("${enemy.participantName} attacks ${target.participantName} for $dmg!")
+                if (target.hp <= 0) {
+                    GameState.combatLog.add("${target.participantName} is defeated!")
+                }
+            }
+        }
+        GameState.currentCombatAllies.removeAll { it.hp <= 0 }
+        GameState.currentCombatEnemies.removeAll { it.hp <= 0 }
+
+        if (GameState.currentCombatAllies.none { it.hp > 0 }) {
+            GameState.combatLog.add("All allies defeated! Quest failed.")
+            endQuestEncounter()
+        } else if (GameState.currentCombatEnemies.none { it.hp > 0 }) {
+            GameState.combatLog.add("Victory! Proceeding to next encounter.")
+            nextQuestEncounter()
+        } else {
+            Handler(Looper.getMainLooper()).postDelayed({ runCombatRound(encounter) }, 1000)
+            showCombatEncounter(encounter)
+        }
+    }
+
+    private fun showExplorationEncounter(encounter: Encounter.Exploration) {
+        val layout = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+
+        val title = TextView(this).apply {
+            text = "${encounter.name}\n${encounter.description}"
+            textSize = 16f
+        }
+        layout.addView(title)
+
+        val timeRemaining = ((GameState.explorationTimerMillis - System.currentTimeMillis()) / 1000).coerceAtLeast(0)
+        val timeView = TextView(this).apply {
+            text = "Time remaining: ${timeRemaining}s"
+        }
+        layout.addView(timeView)
+
+        val rewardsView = TextView(this).apply {
+            text = "Rewards: " + encounter.rewards.joinToString { "${it.amount} ${it.item}" }
+        }
+        layout.addView(rewardsView)
+
+        val (wear, frus, unease) = GameState.explorationStress
+        val stressView = TextView(this).apply {
+            text = "Weariness: $wear/${encounter.stressThresholds.maxWeariness}  " +
+                    "Frustration: $frus/${encounter.stressThresholds.maxFrustration}  " +
+                    "Unease: $unease/${encounter.stressThresholds.maxUnease}"
+        }
+        layout.addView(stressView)
+
+        tabContentFrame.removeAllViews()
+        tabContentFrame.addView(layout)
+
+        if (!GameState.isTaskRunning) {
+            GameState.isTaskRunning = true
+            Handler(Looper.getMainLooper()).postDelayed({ runExplorationTick(encounter) }, 1000)
+        }
+    }
+
+    private fun runExplorationTick(encounter: Encounter.Exploration) {
+        if (!GameState.isTaskRunning) return
+
+        val now = System.currentTimeMillis()
+        if (now >= GameState.explorationTimerMillis) {
+            GameState.combatLog.add("Exploration complete! Rewards earned.")
+            nextQuestEncounter()
+            return
+        }
+
+        var (wear, frus, unease) = GameState.explorationStress
+        wear += encounter.stressIncrease.weariness
+        frus += encounter.stressIncrease.frustration
+        unease += encounter.stressIncrease.unease
+        GameState.explorationStress = Triple(wear, frus, unease)
+
+        if (wear >= encounter.stressThresholds.maxWeariness ||
+            frus >= encounter.stressThresholds.maxFrustration ||
+            unease >= encounter.stressThresholds.maxUnease) {
+            GameState.combatLog.add("Stress too high! The party is forced to leave and rest.")
+            endQuestEncounter()
+            return
+        }
+
+        Handler(Looper.getMainLooper()).postDelayed({ runExplorationTick(encounter) }, 1000)
+        showExplorationEncounter(encounter)
+    }
+
+    private fun nextQuestEncounter() {
+        val loc = GameState.currentQuest ?: return
+        val idx = GameState.currentEncounterIndex ?: return
+        val nextIdx = idx + 1
+        GameState.questProgress[loc.id] = nextIdx
+        if (nextIdx >= loc.encounters.size) {
+            // Quest complete
+            GameState.currentQuest = null
+            GameState.currentEncounterIndex = null
+            GameState.currentEncounter = null
+            GameState.isTaskRunning = false
+            Toast.makeText(this, "Location complete!", Toast.LENGTH_SHORT).show()
+            showQuestTab()
+        } else {
+            GameState.currentEncounterIndex = nextIdx
+            GameState.currentEncounter = loc.encounters[nextIdx]
+            GameState.isTaskRunning = false
+            showQuestTab()
+        }
+    }
+
+    private fun endQuestEncounter() {
+        GameState.currentQuest = null
+        GameState.currentEncounterIndex = null
+        GameState.currentEncounter = null
+        GameState.isTaskRunning = false
+        showQuestTab()
     }
 
     private fun addButton(

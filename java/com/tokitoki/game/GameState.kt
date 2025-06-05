@@ -4,25 +4,27 @@ object GameState {
     var playerName: String? = null
     var tokiName: String? = null
     var isFirstLaunch: Boolean = true
+    var homeHPrest = 0.0
+    var homeStaminarest = 0.0
 
     //Vitals
     var playerHP = 10.0
     var maxPlayerHP = 10.0
-    var playerHPRate = 0.05
+    var playerHPRate = 0.05 + homeHPrest
 
     var playerStamina = 10.0
     var maxPlayerStamina = 10.0
-    var playerStaminaRate = 0.05
+    var playerStaminaRate = 0.05 + homeStaminarest
 
 
     //T. Vitals
     var tokiHP = 1.0
     var maxTokiHP = 1.0
-    var tokiHPRate = 0.05
+    var tokiHPRate = 0.05 + homeHPrest
 
     var tokiStamina = 1.0
     var maxTokiStamina = 1.0
-    var tokiStaminaRate = 0.05
+    var tokiStaminaRate = 0.05 + homeStaminarest
 
     // Resources
     var eletro = 0.0
@@ -82,6 +84,7 @@ object GameState {
     var isTraining = false
 
     //furniture
+    var isSellMode: Boolean = false
 
     val furnitureList = listOf(
         Furniture(
@@ -176,6 +179,7 @@ object GameState {
 
     var furnitureOwned = mutableMapOf<String, Int>()
 
+
     //Homes
 
     data class Home(
@@ -222,14 +226,14 @@ object GameState {
     var herbsFed = 0.0
     var milkFed = 0.0
     var berriesFed = 0.0
-    var mossFed = 0.0
+    var bonesFed = 0.0
     var meatFed = 0.0
-    var rootFed = 0.0
+    var rootsFed = 0.0
     var grainFed = 0.0
     var mushroomFed = 0.0
     var fruitFed = 0.0
     var spiceFed = 0.0
-    var alltimeFed = eletroFed + herbsFed + milkFed + berriesFed + mossFed + rootFed + grainFed + mushroomFed + fruitFed + spiceFed
+    var alltimeFed = eletroFed + herbsFed + milkFed + berriesFed + bonesFed + rootsFed + grainFed + mushroomFed + fruitFed + spiceFed
     var tokiLvl = 0.0
 
     // Progression
@@ -250,6 +254,52 @@ object GameState {
     //Skills
     var playerSkills = mutableListOf<Skill>()
     var tokiSkills = mutableListOf<Skill>()
+
+    // QUESTS
+    var unlockedQuestLocations = mutableSetOf<String>()
+    var questProgress = mutableMapOf<String, Int>() // locationId
+    var currentQuest: QuestLocation? = null
+    var currentEncounterIndex: Int? = null
+    var currentEncounter: Encounter? = null
+    var currentCombatAllies = mutableListOf<CombatParticipant>()
+    var currentCombatEnemies = mutableListOf<CombatParticipant>()
+    var combatLog = mutableListOf<String>()
+    var explorationStress = Triple(0, 0, 0) // (weariness + frustration + unease)
+    var explorationTimerMillis: Long = 0L
+
+    val questLocations = listOf(
+        QuestLocation(
+            id = "forest_1",
+            name = "Whispering Woods",
+            description = "A mysterious woodland, full of hidden dangers and treasures.",
+            encounters = listOf(
+                Encounter.Exploration(
+                    name = "Forest Path",
+                    description = "A winding path through the undergrowth.",
+                    baseDurationSec = 10,
+                    rewards = listOf(ItemDrop("herbs", 2, 1.0)),
+                    stressIncrease = StressEffect(2, 1, 1)
+                ),
+                Encounter.Combat(
+                    name = "Wild Boar Ambush",
+                    description = "A wild boar charges from the bushes!",
+                    enemies = listOf(
+                        CombatParticipant("Wild Boar", 8.0, 8.0, 2.0, 0.5)
+                    ),
+                    possibleDrops = listOf(ItemDrop("meat", 1, 0.7))
+                ),
+                Encounter.Exploration(
+                    name = "Old Tree",
+                    description = "An ancient tree towers above the canopy.",
+                    baseDurationSec = 8,
+                    rewards = listOf(ItemDrop("berries", 3, 1.0)),
+                    stressIncrease = StressEffect(1, 2, 1)
+                )
+            )
+        ),
+
+    )
+
 
     // Functions
     fun unlockTab(name: String) {
