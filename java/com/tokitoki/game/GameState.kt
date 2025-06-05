@@ -233,7 +233,7 @@ object GameState {
     var mushroomFed = 0.0
     var fruitFed = 0.0
     var spiceFed = 0.0
-    var alltimeFed = eletroFed + herbsFed + milkFed + berriesFed + bonesFed + rootsFed + grainFed + mushroomFed + fruitFed + spiceFed
+    var alltimeFed = (eletroFed + herbsFed + milkFed + berriesFed + bonesFed + rootsFed + grainFed + mushroomFed + fruitFed + spiceFed)
     var tokiLvl = 0.0
 
     // Progression

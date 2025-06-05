@@ -192,7 +192,7 @@ class MainActivity : AppCompatActivity() {
         if (GameState.eletro >= 40.0) {
             GameState.unlockTab("Skills")
         }
-        if (GameSkills.tokiSkills.find { it.name == "Running" }?.level ?: 0 >= 2) {
+        if (GameSkills.tokiSkills.find { it.name == "Running" }?.level ?: 0 >= 1) {
             GameState.unlockTab("Quest")
         }
         val tabs = listOf("Main", "Stats", "Home", "Skills", "Quest")
@@ -382,7 +382,7 @@ class MainActivity : AppCompatActivity() {
         layout.addView(addButton("[ACTION] Do Chores", "Costs 1 Stamina, gives 1 Eletro") {
             if (GameState.playerStamina >= 1 && GameState.eletro < GameState.maxEletro) {
                 GameState.playerStamina -= 1
-                GameState.eletro += 1
+                GameState.eletro += 10
                 GameState.alltimeEletro += 1
                 updateResourcePanel()
                 tabContentFrame.post {
@@ -1224,17 +1224,17 @@ class MainActivity : AppCompatActivity() {
         topRow.addView(levelView)
         box.addView(topRow)
 
-        val bottomRow = LinearLayout(this).apply {
+        val lowestRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
         }
         val expView = TextView(this).apply {
             text = "${skill.exp} / ${skill.expToNext}"
             setPadding(0, 0, 8, 0)
         }
-        bottomRow.addView(expView)
+        lowestRow.addView(expView)
 
         val spacer = Space(this)
-        bottomRow.addView(spacer, LinearLayout.LayoutParams(0, 0, 1f))
+        lowestRow.addView(spacer, LinearLayout.LayoutParams(0, 0, 1f))
 
         val trainButton = addButton("[TASK] Train skill", "Train this skill for 5 EXP/sec", isTask = true) {
             if (GameState.canStartTask() && !GameState.isTraining && skill.level < skill.maxLevel) {
@@ -1259,14 +1259,14 @@ class MainActivity : AppCompatActivity() {
             }
         }
             trainButton.isEnabled = skill.canTrain()
-            bottomRow.addView(trainButton)
+            lowestRow.addView(trainButton)
 
-            box.addView(bottomRow)
+            box.addView(lowestRow)
             return box
     }
 
     private fun showQuestTab() {
-        // Are we in an encounter?
+        tabContentFrame.removeAllViews()
         if (GameState.currentQuest != null && GameState.currentEncounterIndex != null) {
             val encounter = GameState.currentQuest!!.encounters[GameState.currentEncounterIndex!!]
             when (encounter) {
@@ -1276,7 +1276,6 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
-        // Otherwise, show quest location select UI
         val scrollView = ScrollView(this)
         val gridLayout = GridLayout(this).apply {
             columnCount = 2
@@ -1285,7 +1284,6 @@ class MainActivity : AppCompatActivity() {
         }
 
         for (loc in GameState.questLocations) {
-            // Only show if unlocked (or unlocked by default)
             val unlocked = GameState.unlockedQuestLocations.contains(loc.id) ||
                     (loc.requiredSkill == "Running" && (GameSkills.tokiSkills.find { it.name == "Running" }?.level ?: 0) >= loc.requiredSkillLevel)
             if (!unlocked) continue
@@ -1314,7 +1312,6 @@ class MainActivity : AppCompatActivity() {
                 val total = loc.totalEncounters()
                 text = "$done/$total"
                 textSize = 14f
-                setPadding(0, 8, 0, 0)
             }
             box.addView(counter)
 
@@ -1327,7 +1324,6 @@ class MainActivity : AppCompatActivity() {
                     GameState.currentEncounter = loc.encounters[GameState.currentEncounterIndex!!]
                     when (val e = GameState.currentEncounter) {
                         is Encounter.Combat -> {
-                            // Set up combatants
                             GameState.currentCombatAllies = mutableListOf(
                                 CombatParticipant(GameState.playerName ?: "Player",
                                     GameState.playerHP, GameState.maxPlayerHP, 2.0, 1.0, true),
